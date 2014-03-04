@@ -2,15 +2,18 @@ package moira.unit
 
 // Physical Quantity
 case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
+  lazy val dim = unit.dim
+  val isZero = value == 0
+
   def +(pq: PhysicalQuantity): PhysicalQuantity = {
-    require(unit.dim == pq.unit.dim)
+    require(isZero || pq.isZero || dim == pq.dim)
     val pq1 = normalized
     val pq2 = pq.normalized
     PhysicalQuantity(pq1.value + pq2.value, pq1.unit)
   }
 
   def -(pq: PhysicalQuantity): PhysicalQuantity = {
-    require(unit.dim == pq.unit.dim)
+    require(isZero || pq.isZero || dim == pq.dim)
     val pq1 = normalized
     val pq2 = pq.normalized
     PhysicalQuantity(pq1.value - pq2.value, pq1.unit)
@@ -28,7 +31,7 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
   // get an equivalent physical quantity with a unit whose factor is 1
   lazy val normalized: PhysicalQuantity = {
     val newValue = value * unit.factor
-    PhysicalQuantity(newValue, SIUnit(1.0, unit.dim))
+    PhysicalQuantity(newValue, SIUnit(1.0, dim))
   }
 
   // pretty-printing

@@ -1,13 +1,13 @@
 package moira.constraint
 
 import moira.unit.PhysicalQuantity
-import moira.syntax.Rel
-import moira.syntax.Expr
-import moira.syntax.BinOp
-import moira.syntax.BinOpType
+import moira.expression.Rel
+import moira.expression.Expr
+import moira.expression.BinOp
+import moira.expression.BinOpType
 import moira.math.NumericalSolver
 
-sealed abstract class ConstraintType
+sealed trait ConstraintType
 object ConstraintType {
   case object Eq extends ConstraintType
   case object InEq extends ConstraintType

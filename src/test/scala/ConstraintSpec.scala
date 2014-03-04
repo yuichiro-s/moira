@@ -1,6 +1,6 @@
 import org.scalatest.FlatSpec
 
-import moira.syntax._
+import moira.expression._
 import moira.constraint._
 import moira.constraint.solver._
 
