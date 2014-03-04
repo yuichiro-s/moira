@@ -1,0 +1,44 @@
+package moira.unit
+
+// Physical Quantity
+case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
+  def +(pq: PhysicalQuantity): PhysicalQuantity = {
+    require(unit.dim == pq.unit.dim)
+    val pq1 = normalized
+    val pq2 = pq.normalized
+    PhysicalQuantity(pq1.value + pq2.value, pq1.unit)
+  }
+
+  def -(pq: PhysicalQuantity): PhysicalQuantity = {
+    require(unit.dim == pq.unit.dim)
+    val pq1 = normalized
+    val pq2 = pq.normalized
+    PhysicalQuantity(pq1.value - pq2.value, pq1.unit)
+  }
+
+  def *(pq: PhysicalQuantity): PhysicalQuantity =
+    PhysicalQuantity(value * pq.value, unit * pq.unit)
+
+  def /(pq: PhysicalQuantity): PhysicalQuantity =
+    PhysicalQuantity(value / pq.value, unit / pq.unit)
+
+  def **(n: Int): PhysicalQuantity =
+    PhysicalQuantity(Math.pow(value, n), unit ** n)
+
+  // get an equivalent physical quantity with a unit whose factor is 1
+  lazy val normalized: PhysicalQuantity = {
+    val newValue = value * unit.factor
+    PhysicalQuantity(newValue, SIUnit(1.0, unit.dim))
+  }
+
+  // pretty-printing
+  override def toString = {
+    CommonUnits.names.collectFirst {
+      case (str, u) if u == unit => str
+    } match {
+      case None => super.toString
+      case Some(str) => "%.1f %s".format(value, str)
+    }
+  }
+}
+
