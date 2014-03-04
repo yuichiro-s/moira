@@ -15,8 +15,8 @@ import scala.util.parsing.combinator._
  * funcall ::= ident "(" args ")".
  * args ::= [ expr { "," expr } ].
  */
+object Parser extends JavaTokenParsers {
 
-class ExprParser extends JavaTokenParsers {
   lazy val expr: Parser[Expr] = term~rep("+"~term | "-"~term) ^^ {
     case t~ts => ts.foldLeft(t) { (e, t) =>
       t match {
@@ -54,15 +54,6 @@ class ExprParser extends JavaTokenParsers {
     case name~as => Funcall(name, as)
   }
 
-  def parseExpr(str: String): Option[Expr] = {
-    parseAll(expr, str) match {
-      case Success(result, _) => Some(result)
-      case _ => None
-    }
-  }
-}
-
-class RelParser extends ExprParser {
   lazy val rel: Parser[Rel] = equality | inequality
 
   lazy val equality: Parser[Rel] = expr~"="~expr ^^ {
@@ -75,6 +66,13 @@ class RelParser extends ExprParser {
     | expr~">="~expr ^^ { case lhs~">="~rhs => Rel(RelType.GtEq, lhs, rhs) }
     | expr~"<="~expr ^^ { case lhs~"<="~rhs => Rel(RelType.LtEq, lhs, rhs)}
     )
+
+  def parseExpr(str: String): Option[Expr] = {
+    parseAll(expr, str) match {
+      case Success(result, _) => Some(result)
+      case _ => None
+    }
+  }
 
   def parseRel(str: String): Option[Rel] = {
     parseAll(rel, str) match {

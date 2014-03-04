@@ -45,3 +45,5 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
   }
 }
 
+object PQZero extends PhysicalQuantity(0.0)
+object PQOne extends PhysicalQuantity(1.0)

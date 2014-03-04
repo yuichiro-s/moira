@@ -1,6 +1,6 @@
-package moira.canvas
+package moira.world
 
-trait UserAction {
+/*trait UserAction {
 
 }
 
@@ -13,4 +13,4 @@ case class UpdateParameter(id: Int, oldParam: ProtoParameter, newParam: ProtoPar
 }
 case class UpdateConstraint(id: Int, oldConst: ProtoConstraint, newConst: ProtoConstraint) extends UndoableUserAction {
   require(newConst.id == id)
-}
+}*/

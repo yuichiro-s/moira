@@ -11,27 +11,23 @@ import moira.expression.BinOpType
 import moira.expression.Var
 import moira.expression.Value
 import moira.expression.Funcall
+import moira.expression.Parser
 import moira.unit.SIDim
+import moira.unit.PQZero
 
 // Parameter whose definition can be incomplete.
-case class ProtoConstraint(id: Int, rel: Rel, paramMap: Map[String, ProtoParameter]) {
-  val vars = rel.vars
-
-  require(paramMap.keys.forall(vars.contains(_)),
-    "All variables in /paramMap/ must also appear in /rel/.")
-
-  // update
-  def updateRel(newRel: Rel) = copy(rel = newRel)
-  def addConnection(v: String, param: ProtoParameter) = {
-    copy(paramMap = paramMap + (v -> param))
-  }
-  def removeConnection(v: String) = {
-    copy(paramMap = paramMap - v)
-  }
+case class ProtoConstraint(id: Int, relStr: String, paramMap: Map[String, ProtoParameter]) {
+  val rel: Option[Rel] = Parser.parseRel(relStr)
+  val vars: Option[Set[String]] = rel.map(_.vars)
+  
+  require(vars match {
+    case None => true
+    case Some(vs) => paramMap.keys.forall(vs.contains(_))
+  }, "All variables in /paramMap/ must also appear in /rel/.")
 
   // Returns variables that do not appear in /paramMap/.
-  lazy val disconnectedVariables: Set[String] = {
-    vars filter { v => !paramMap.isDefinedAt(v) }
+  lazy val disconnectedVariables: Option[Set[String]] = {
+    vars.map(_.filter { v => !paramMap.isDefinedAt(v) })
   }
 
   // Finds inconsistent pair of /Expr/s.
@@ -64,9 +60,16 @@ case class ProtoConstraint(id: Int, rel: Rel, paramMap: Map[String, ProtoParamet
       }
     }
 
-    (getDim(rel.lhs), getDim(rel.rhs)) match {
-      case (Some(dim1), Some(dim2)) => dim1 == dim2
-      case _ => false
+    rel match {
+      case None => false  // relation definition cannot be parsed
+      case Some(rel) => {
+        (getDim(rel.lhs), getDim(rel.rhs)) match {
+          case (Some(dim1), Some(dim2)) => {
+            dim1 == dim2 || rel.lhs == Value(PQZero) || rel.rhs == Value(PQZero)
+          }
+          case _ => false
+        }
+      }
     }
   }
 
@@ -98,7 +101,8 @@ case class ProtoConstraint(id: Int, rel: Rel, paramMap: Map[String, ProtoParamet
           case (a, b) => (a.toMap, b)
         }
         // renamed /rel/
-        val newRel = xys.foldLeft(rel) {
+        assert(rel != None, "Relation definition should be able to be parsed.")
+        val newRel = xys.foldLeft(rel.get) {
           case (r, (x, ys)) => r.unify(x, ys)
         }
 

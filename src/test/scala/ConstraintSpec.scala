@@ -6,7 +6,7 @@ import moira.constraint.solver._
 
 class ConstraintSpec extends FlatSpec {
 
-  val parser = new RelParser
+  val parser = Parser
   def e(str: String) = parser.parseExpr(str).get
   def r(str: String) = parser.parseRel(str).get
   def pq(str: String) = e(str) match { case Value(pq) => pq }
