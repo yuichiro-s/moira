@@ -8,5 +8,8 @@ case class Parameter(id: Int, dim: SIDim, lower: PhysicalQuantity, upper: Physic
   // dimensions must be consistent
   require(lower.unit.dim == dim)
   require(upper.unit.dim == dim)
+
+  // /lower/ must be smaller than /upper/
+  require((upper - lower).value >= 0)
 }
 
