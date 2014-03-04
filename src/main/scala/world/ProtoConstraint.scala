@@ -1,4 +1,4 @@
-package moira.canvas
+package moira.world
 
 import moira.constraint.Constraint
 import moira.constraint.ConstraintType

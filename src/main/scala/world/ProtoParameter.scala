@@ -1,4 +1,4 @@
-package moira.canvas
+package moira.world
 
 import moira.constraint.Parameter
 import moira.unit.SIDim
