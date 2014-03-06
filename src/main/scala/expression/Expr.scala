@@ -69,7 +69,6 @@ object BinOpType {
   case object Sub extends BinOpType
   case object Mul extends BinOpType
   case object Div extends BinOpType
-  case object Pow extends BinOpType
 }
 
 // binary operation

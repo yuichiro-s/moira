@@ -21,6 +21,17 @@ case class World(
 
   // actions to /Constraint/
 
+  // Common function to process a constraint with the given /id/.
+  def withConstraintId[T](id: Int)(f: => ProtoConstraint => T): T = {
+    constraints.find(_.id == id) match {
+      case Some(c) => f(c)
+      case None => {
+        // fails if a /ProtoConstraint/ with the /id/ is not found.
+        throw new IllegalArgumentException("ProtoConstraint(id=%d) not found.".format(id))
+      }
+    }
+  }
+
   def newConstraint(
     relStr: String,
     paramMap: Map[String, ProtoParameter]
@@ -37,10 +48,8 @@ case class World(
     (newWorld, newConst)
   }
 
-  def copyConstraint(const: ProtoConstraint): (World, ProtoConstraint) = {
-    require(constraints.contains(const))
-
-    val newConst = const.copy(id = nextConstraintId)
+  def copyConstraint(id: Int): (World, ProtoConstraint) = withConstraintId(id) { c =>
+    val newConst = c.copy(id = nextConstraintId)
     val newWorld = copy(
       constraints = constraints + newConst,
       nextConstraintId = nextConstraintId + 1
@@ -49,42 +58,51 @@ case class World(
   }
 
   def updateConstraint(
-    const: ProtoConstraint,
+    id: Int,
     relStr: String,
     paramMap: Map[String, ProtoParameter]
-  ): (World, ProtoConstraint) = {
-    require(constraints.contains(const))
-
-    val newConst = const.copy(
+  ): (World, ProtoConstraint) = withConstraintId(id) { c =>
+    val newConst = c.copy(
       relStr = relStr,
       paramMap = paramMap
     )
-    val newWorld = removeConstraint(const)
+    val newWorld = removeConstraint(id)
     val newWorld2 = newWorld.copy(constraints = newWorld.constraints + newConst)
     (newWorld2, newConst)
   }
 
-  def removeConstraint(const: ProtoConstraint): World = {
-    require(constraints.contains(const))
-
-    copy(constraints = constraints - const)
+  def removeConstraint(id: Int): World = withConstraintId(id) { c =>
+    copy(constraints = constraints - c)
   }
 
-  def addConnection(const: ProtoConstraint, v: String, param: ProtoParameter): (World, ProtoConstraint) = {
-    require(constraints.contains(const))
-    require(parameters.contains(param))
-    require(const.vars match { case None => false; case Some(vs) => vs.contains(v) })
-
-    updateConstraint(const, const.relStr, const.paramMap + (v -> param))
+  def addConnection(cId: Int, v: String, pId: Int): (World, ProtoConstraint) = {
+    withConstraintId(cId) { c =>
+      withParameterId(pId) { p =>
+        require(c.vars match { case None => false; case Some(vs) => vs.contains(v) },
+          "ProtoConstraint(id=%d) must contain a variable %s.".format(cId, v))
+        updateConstraint(cId, c.relStr, c.paramMap + (v -> p))
+      }
+    }
   }
 
-  def removeConnection(const: ProtoConstraint, v: String): (World, ProtoConstraint) = {
-    require(constraints.contains(const))
-
-    updateConstraint(const, const.relStr, const.paramMap - v)
+  def removeConnection(cId: Int, v: String): (World, ProtoConstraint) = {
+    withConstraintId(cId) { c =>
+      updateConstraint(cId, c.relStr, c.paramMap - v)
+    }
   }
 
   // actions to /Parameter/
+
+  // Common function to process a parameter with the given /id/.
+  def withParameterId[T](id: Int)(f: => ProtoParameter => T): T = {
+    parameters.find(_.id == id) match {
+      case Some(p) => f(p)
+      case None => {
+        // fails if a /ProtoParameter/ with the /id/ is not found.
+        throw new IllegalArgumentException("ProtoParameter(id=%d) not found.".format(id))
+      }
+    }
+  }
 
   def newParameter(
     name: String,
@@ -110,27 +128,27 @@ case class World(
     (newWorld, newParam)
   }
 
-  def copyParameter(param: ProtoParameter): (World, ProtoParameter) = {
-    require(parameters.contains(param))
-    val newParam = param.copy(id = nextParameterId)
-    val newWorld = copy(
-      parameters = parameters + newParam,
-      nextParameterId = nextParameterId + 1
-    )
-    (newWorld, newParam)
+  def copyParameter(id: Int): (World, ProtoParameter) = {
+    withParameterId(id) { p =>
+      val newParam = p.copy(id = nextParameterId)
+      val newWorld = copy(
+        parameters = parameters + newParam,
+        nextParameterId = nextParameterId + 1
+      )
+      (newWorld, newParam)
+    }
   }
 
   def updateParameter(
-    param: ProtoParameter,
+    id: Int,
     name: String,
     dim: SIDim,
     displayUnit: SIUnit,
     lower: Option[PhysicalQuantity],
     upper: Option[PhysicalQuantity],
     value: Option[PhysicalQuantity]
-  ): (World, ProtoParameter) = {
-    require(parameters.contains(param))
-    val newParam = param.copy(
+  ): (World, ProtoParameter) = withParameterId(id) { p =>
+    val newParam = p.copy(
       name = name,
       dim = dim,
       displayUnit = displayUnit,
@@ -138,16 +156,14 @@ case class World(
       upper = upper,
       value = value
     )
-    val newWorld = removeParameter(param)
+    val newWorld = removeParameter(id)
     val newWorld2 = newWorld.copy(parameters = newWorld.parameters + newParam)
     (newWorld2, newParam)
   }
 
-  def removeParameter(param: ProtoParameter): World = {
-    copy(parameters = parameters - param)
+  def removeParameter(id: Int): World = {
+    withParameterId(id) { p =>
+      copy(parameters = parameters - p)
+    }
   }
-
-  /*lazy val toXML: xml.Elem = {
-
-  }*/
 }
