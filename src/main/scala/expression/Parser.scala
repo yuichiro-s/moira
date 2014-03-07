@@ -44,7 +44,7 @@ object Parser extends JavaTokenParsers {
   | "("~>expr<~")"
   )
 
-  lazy val unit: Parser[SIUnit] = ((CommonUnits.names.toList.sortBy {
+  lazy val unit: Parser[SIUnit] = ((CommonUnits.nameToUnit.toList.sortBy {
     kv => -kv._1.length // sort by length in descending order to avoid ambiguity
   }).map {
     kv => { kv._1 ^^ (_ => kv._2) }

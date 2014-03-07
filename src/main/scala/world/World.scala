@@ -107,7 +107,7 @@ case class World(
   def createParameter(
     name: String,
     dim: SIDim,
-    displayUnit: SIUnit,
+    displayUnit: String,
     lower: Option[PhysicalQuantity],
     upper: Option[PhysicalQuantity],
     value: Option[PhysicalQuantity]
@@ -143,7 +143,7 @@ case class World(
     id: Int,
     name: String,
     dim: SIDim,
-    displayUnit: SIUnit,
+    displayUnit: String,
     lower: Option[PhysicalQuantity],
     upper: Option[PhysicalQuantity],
     value: Option[PhysicalQuantity]

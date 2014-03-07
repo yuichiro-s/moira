@@ -36,7 +36,7 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
 
   // pretty-printing
   override def toString = {
-    CommonUnits.names.collectFirst {
+    CommonUnits.nameToUnit.collectFirst {
       case (str, u) if u == unit => str
     } match {
       case None => super.toString

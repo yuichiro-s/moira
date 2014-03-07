@@ -21,7 +21,14 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
   // properties
   private val x = DoubleProperty(x0)
   private val y = DoubleProperty(y0)
-  private val protoParameter = ObjectProperty(pp0)
+
+  private val parameter = ObjectProperty(pp0)
+  def getParameter(): ProtoParameter = parameter()
+  val parameterProperty = parameter
+  def setParameter(pp: ProtoParameter) {
+    require(pp.id == pId)
+    parameter() = pp
+  }
 
   private val circle = new Circle() {
     radius = RADIUS
@@ -31,16 +38,16 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
     strokeWidth = 3
     fill <== when (hover) choose Color.GREEN otherwise Color.PINK
 
-    handleEvent(MouseEvent.MousePressed) {
+    handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
       // show the information of the parameter
       diagram.infoObject() = Some(DParameter.this)
+      me.consume()
     }
   }
 
   private val nameText = new Text() {
     x <== DParameter.this.x
     y <== DParameter.this.y
-    text = protoParameter().name
     stroke = Color.BLUE
     mouseTransparent = true
   }
@@ -48,18 +55,29 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
   private val valueText = new Text() {
     x <== DParameter.this.x
     y <== DParameter.this.y
-    text = protoParameter().displayUnit.toString
     translateY = 20
     stroke = Color.GREEN
     mouseTransparent = true
   }
 
-  content = Seq(circle, nameText, valueText)
+  def update() {
+    val p = getParameter()
 
-  def getProtoParameter(): ProtoParameter = protoParameter()
-  val protoParameterProperty = protoParameter
-  def setProtoParameter(pp: ProtoParameter) {
-    require(pp.id == pId)
-    protoParameter() = pp
+    nameText.text = p.name
+    valueText.text = p.value match {
+      case Some(pq) =>  pq.toString
+      case None => {
+        // When the parameter is not bound, show its dimension.
+        p.dim.toString
+      }
+    }
   }
+
+  // initialization
+  update()
+
+  // Update appearance when the parameter is changed.
+  parameter.onChange(update)
+
+  content = Seq(circle, nameText, valueText)
 }

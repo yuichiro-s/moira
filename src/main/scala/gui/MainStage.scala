@@ -9,10 +9,6 @@ object MainStage extends JFXApp.PrimaryStage {
   title = "Moira"
   scene = new Scene(400, 300) {
     val diagram = new Diagram()
-    val infoStage = new InfoStage(diagram)
-
     root = diagram
-
-    infoStage.show()
   }
 }

@@ -16,7 +16,7 @@ import moira.unit.SIDim
 import moira.unit.PQZero
 
 // Parameter whose definition can be incomplete.
-case class ProtoConstraint(id: Int, relStr: String, paramMap: Map[String, ProtoParameter]) {
+case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {
   val rel: Option[Rel] = Parser.parseRel(relStr)
   val vars: Option[Set[String]] = rel.map(_.vars)
   
