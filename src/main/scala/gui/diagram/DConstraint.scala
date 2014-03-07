@@ -1,5 +1,5 @@
 package moira.gui.diagram
 
-class DConstraint() {
+class DConstraint() extends DObject {
 
 }

@@ -32,7 +32,7 @@ case class World(
     }
   }
 
-  def newConstraint(
+  def createConstraint(
     relStr: String,
     paramMap: Map[String, ProtoParameter]
   ): (World, ProtoConstraint) = {
@@ -104,7 +104,7 @@ case class World(
     }
   }
 
-  def newParameter(
+  def createParameter(
     name: String,
     dim: SIDim,
     displayUnit: SIUnit,

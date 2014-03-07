@@ -8,6 +8,11 @@ import moira.gui.diagram.Diagram
 object MainStage extends JFXApp.PrimaryStage {
   title = "Moira"
   scene = new Scene(400, 300) {
-    root = new Diagram()
+    val diagram = new Diagram()
+    val infoStage = new InfoStage(diagram)
+
+    root = diagram
+
+    infoStage.show()
   }
 }
