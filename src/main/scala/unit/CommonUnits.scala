@@ -62,6 +62,7 @@ object CommonDims {
 }
 
 object CommonUnits {
+  val one = SIUnit(1, CommonDims.NODIM)
   val meter = SIUnit(1, CommonDims.LENGTH)
   val kilogram = SIUnit(1, CommonDims.MASS)
   val second = SIUnit(1, CommonDims.TIME)
@@ -94,7 +95,7 @@ object CommonUnits {
   val meterPerSecond2 = meter / (second ** 2)
 
   // force
-  val newton = kilogram * meter / meterPerSecond2
+  val newton = kilogram * meterPerSecond2
 
   // energy
   val joule = newton * meter
@@ -111,9 +112,9 @@ object CommonUnits {
   val farad = coulomb / volt
   val ohm = volt / ampere
 
-
   // known units
   val nameToUnit = Map(
+    "" -> one,
     "m" -> meter,
     "kg" -> kilogram,
     "s" -> second,
@@ -149,6 +150,7 @@ object CommonUnits {
   def unitNames(dim: SIDim): Seq[(String, SIUnit)] = {
     val defaultUnit = SIUnit(1.0, dim)
     val defaultUnitName = "<" + defaultUnit.toString + ">"
+
     Seq((defaultUnitName, defaultUnit)) ++
       nameToUnit filter { case (n, u) => u.dim == dim } toSeq
   }

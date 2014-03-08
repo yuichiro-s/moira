@@ -60,6 +60,7 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
     mouseTransparent = true
   }
 
+  // update appearance of the parameter
   def update() {
     val p = getParameter()
 
