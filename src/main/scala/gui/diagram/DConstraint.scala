@@ -98,19 +98,16 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
     val c = getConstraint()
     relText.text = c.relStr
 
-    println(dVariableMap)
     var newDVariableMap = Map[String, DVariable]()
     variables.children = c.vars match {
       case None => Seq()
       case Some(vs) => vs map { varName =>
         dVariableMap.get(varName) match {
           case Some(dv) => {
-            println("reused var: " + varName)
             newDVariableMap += varName -> dv
             dv
           }
           case None => {
-            println("new var: " + varName)
             val dv = new DVariable(varName, 20d * (dVariableMap.size + newDVariableMap.size), 20d)
             newDVariableMap += varName -> dv
             dv
@@ -118,8 +115,6 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
         }
       }
     }
-    println(newDVariableMap)
-    println()
 
     dVariableMap = newDVariableMap
   }

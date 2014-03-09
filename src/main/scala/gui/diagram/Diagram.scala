@@ -1,15 +1,17 @@
 package moira.gui.diagram
 
+import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
 import scalafx.scene.Group
-import scalafx.scene.layout.Pane
-import scalafx.scene.input.MouseEvent
+import scalafx.scene.layout.BorderPane
+import scalafx.scene.input.{KeyCode,KeyCombination,KeyCodeCombination,MouseEvent}
+import scalafx.scene.control.{MenuItem,MenuBar,Menu}
 
 import moira.world.World
 import moira.gui.InfoStage
 import moira.unit.CommonDims
 
-class Diagram extends Pane {
+class Diagram extends BorderPane {
   implicit val diagram: Diagram = this
 
   // properties
@@ -44,10 +46,41 @@ class Diagram extends Pane {
     )
   }
 
+  val menuBar = new MenuBar {
+    menus = Seq(
+      new Menu("Operations") {
+        items = Seq(
+          new MenuItem("New Parameter") {
+            accelerator = new KeyCodeCombination(KeyCode.P,
+              KeyCombination.ShortcutDown)
+            onAction = handle {
+              println("New Parameter selected.")
+            }
+          },
+          new MenuItem("New Constraint") {
+            accelerator = new KeyCodeCombination(KeyCode.R,
+              KeyCombination.ShortcutDown)
+            onAction = handle {
+              println("New Constraint selected.")
+            }
+          },
+          new MenuItem("Bind Variable") {
+            accelerator = new KeyCodeCombination(KeyCode.B,
+              KeyCombination.ShortcutDown)
+            onAction = handle {
+              println("Bind Variable selected.")
+            }
+          }
+        )
+      }
+    )
+  }
+
   // When empty space is clicked, the info window becomes empty.
   handleEvent(MouseEvent.MousePressed) { infoObject() = None }
 
-  content = Seq(dParameters, dConstraints)
+  top = menuBar
+  center = new Group(dParameters, dConstraints)
 
   val infoStage = new InfoStage()
   infoStage.show()

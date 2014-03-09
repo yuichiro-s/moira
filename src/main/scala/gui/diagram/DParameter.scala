@@ -36,7 +36,7 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
     centerY <== DParameter.this.y
     stroke = Color.RED
     strokeWidth = 3
-    fill <== when (hover) choose Color.GREEN otherwise Color.PINK
+    fill <== when (hover) choose Color.LIGHTYELLOW otherwise Color.LIGHTPINK
 
     handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
       // show the information of the parameter
