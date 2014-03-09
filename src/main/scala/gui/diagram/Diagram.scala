@@ -1,7 +1,7 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.ObjectProperty
+import scalafx.beans.property.{DoubleProperty, ObjectProperty}
 import scalafx.scene.Group
 import scalafx.scene.layout.BorderPane
 import scalafx.scene.input.{KeyCode,KeyCombination,KeyCodeCombination,MouseEvent}
@@ -18,6 +18,9 @@ class Diagram extends BorderPane {
   val world = ObjectProperty(new World(Set.empty, Set.empty))
   val selectedParameters = ObjectProperty(Set[DParameter]())
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
+  // position the user pressed mouse button on the screen the last time
+  val lastMousePressedX = DoubleProperty(200d)
+  val lastMousePressedY = DoubleProperty(200d)
 
   //var connections = Seq[DConnection]()
 
@@ -46,6 +49,21 @@ class Diagram extends BorderPane {
     )
   }
 
+  // operations
+  def createConstraint() {
+    val x = lastMousePressedX()
+    val y = lastMousePressedY()
+
+    world() = world().createConstraint(" ", Map.empty) match {
+      case (w, pc) => {
+        val newDConstraint = new DConstraint(pc, x, y)
+        dConstraints.children += newDConstraint
+        w
+      }
+    }
+  }
+
+  // menu bar
   val menuBar = new MenuBar {
     menus = Seq(
       new Menu("Operations") {
@@ -61,7 +79,7 @@ class Diagram extends BorderPane {
             accelerator = new KeyCodeCombination(KeyCode.R,
               KeyCombination.ShortcutDown)
             onAction = handle {
-              println("New Constraint selected.")
+              createConstraint()
             }
           },
           new MenuItem("Bind Variable") {
@@ -76,8 +94,14 @@ class Diagram extends BorderPane {
     )
   }
 
-  // When empty space is clicked, the info window becomes empty.
-  handleEvent(MouseEvent.MousePressed) { infoObject() = None }
+  handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
+    // When empty space is clicked, the info window becomes empty.
+    infoObject() = None
+
+    // change last mouse pressed position
+    lastMousePressedX() = me.x
+    lastMousePressedY() = me.y
+  }
 
   top = menuBar
   center = new Group(dParameters, dConstraints)
