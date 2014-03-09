@@ -1,17 +1,7 @@
 package moira.world
 
-import moira.constraint.Constraint
-import moira.constraint.ConstraintType
-import moira.constraint.Parameter
-import moira.expression.Rel
-import moira.expression.RelType
-import moira.expression.Expr
-import moira.expression.BinOp
-import moira.expression.BinOpType
-import moira.expression.Var
-import moira.expression.Value
-import moira.expression.Funcall
-import moira.expression.Parser
+import moira.constraint.{Constraint,ConstraintType,Parameter}
+import moira.expression.{Expr,Rel,RelType,BinOp,BinOpType,Var,Value,Funcall,Parser}
 import moira.unit.SIDim
 import moira.unit.PQZero
 

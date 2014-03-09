@@ -5,10 +5,8 @@ import scalafx.beans.property.ObjectProperty
 import scalafx.scene.control.{Label,TextField}
 import scalafx.scene.layout.{HBox,VBox}
 
-import moira.unit.PhysicalQuantity
 import moira.gui.diagram.{DConstraint, Diagram}
-import moira.world.{World, ProtoParameter, ProtoConstraint}
-import moira.unit.{CommonDims,CommonUnits}
+import moira.world.{World, ProtoConstraint}
 
 class ConstraintInfoPane()(implicit diagram: Diagram) extends VBox {
   val pc = ObjectProperty(ProtoConstraint())
