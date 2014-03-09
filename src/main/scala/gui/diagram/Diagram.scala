@@ -1,7 +1,7 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{DoubleProperty,ObjectProperty}
+import scalafx.beans.property.{BooleanProperty,DoubleProperty, ObjectProperty}
 import scalafx.scene.Group
 import scalafx.scene.layout.BorderPane
 import scalafx.scene.input.{KeyCode,KeyCombination,KeyCodeCombination,MouseEvent}
@@ -16,7 +16,8 @@ class Diagram extends BorderPane {
 
   // properties
   val world = ObjectProperty(new World(Set.empty, Set.empty))
-  val selectedParameters = ObjectProperty(Set[DParameter]())
+  val selectedParameters = ObjectProperty(Set[DObject]())
+  val selectedConstraints = ObjectProperty(Set[DObject]())
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
   // position the user pressed mouse button on the screen the last time
   val lastMousePressedX = DoubleProperty(200d)
@@ -34,8 +35,8 @@ class Diagram extends BorderPane {
 
   var dParameters = new Group() {
     children = Seq(
-      new DParameter(pp1, 100, 100),
-      new DParameter(pp2, 200, 150)
+      new DParameter(pp1, 100, 100).group,
+      new DParameter(pp2, 200, 150).group
     )
   }
 
@@ -45,7 +46,7 @@ class Diagram extends BorderPane {
   }
   var dConstraints = new Group() {
     children = Seq(
-      new DConstraint(pc1, 100, 200)
+      new DConstraint(pc1, 100d, 200d).group
     )
   }
 
@@ -58,7 +59,7 @@ class Diagram extends BorderPane {
     world() = world().createConstraint(relStr, paramMap) match {
       case (w, pc) => {
         val newDConstraint = new DConstraint(pc, x, y)
-        dConstraints.children += newDConstraint
+        dConstraints.children += newDConstraint.group
         w
       }
     }
@@ -79,7 +80,7 @@ class Diagram extends BorderPane {
       name, dim, displayUnit, lower, upper, value) match {
       case (w, pp) => {
         val newDParameter = new DParameter(pp, x, y)
-        dParameters.children += newDParameter
+        dParameters.children += newDParameter.group
         w
       }
     }
@@ -119,6 +120,15 @@ class Diagram extends BorderPane {
     // change last mouse pressed position
     lastMousePressedX() = me.x
     lastMousePressedY() = me.y
+
+    // unselect objects
+    unselect()
+  }
+
+  // Unselects objects.
+  def unselect() {
+    selectedParameters() = Set[DObject]()
+    selectedConstraints() = Set[DObject]()
   }
 
   top = menuBar
@@ -127,4 +137,3 @@ class Diagram extends BorderPane {
   val infoStage = new InfoStage()
   infoStage.show()
 }
-
