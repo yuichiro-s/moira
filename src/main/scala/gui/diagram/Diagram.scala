@@ -1,15 +1,15 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{DoubleProperty, ObjectProperty}
+import scalafx.beans.property.{DoubleProperty,ObjectProperty}
 import scalafx.scene.Group
 import scalafx.scene.layout.BorderPane
 import scalafx.scene.input.{KeyCode,KeyCombination,KeyCodeCombination,MouseEvent}
 import scalafx.scene.control.{MenuItem,MenuBar,Menu}
 
-import moira.world.World
+import moira.world.{ProtoParameter,World}
 import moira.gui.InfoStage
-import moira.unit.CommonDims
+import moira.unit.{PhysicalQuantity,SIDim,CommonDims}
 
 class Diagram extends BorderPane {
   implicit val diagram: Diagram = this
@@ -50,14 +50,36 @@ class Diagram extends BorderPane {
   }
 
   // operations
-  def createConstraint() {
+
+  def createConstraint(relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {
     val x = lastMousePressedX()
     val y = lastMousePressedY()
 
-    world() = world().createConstraint(" ", Map.empty) match {
+    world() = world().createConstraint(relStr, paramMap) match {
       case (w, pc) => {
         val newDConstraint = new DConstraint(pc, x, y)
         dConstraints.children += newDConstraint
+        w
+      }
+    }
+  }
+
+  def createParameter(
+    name: String = "",
+    dim: SIDim = SIDim(),
+    displayUnit: String = "",
+    lower: Option[PhysicalQuantity] = None,
+    upper: Option[PhysicalQuantity] = None,
+    value: Option[PhysicalQuantity] = None
+  ) {
+    val x = lastMousePressedX()
+    val y = lastMousePressedY()
+
+    world() = world().createParameter(
+      name, dim, displayUnit, lower, upper, value) match {
+      case (w, pp) => {
+        val newDParameter = new DParameter(pp, x, y)
+        dParameters.children += newDParameter
         w
       }
     }
@@ -71,16 +93,12 @@ class Diagram extends BorderPane {
           new MenuItem("New Parameter") {
             accelerator = new KeyCodeCombination(KeyCode.P,
               KeyCombination.ShortcutDown)
-            onAction = handle {
-              println("New Parameter selected.")
-            }
+            onAction = handle { createParameter() }
           },
           new MenuItem("New Constraint") {
             accelerator = new KeyCodeCombination(KeyCode.R,
               KeyCombination.ShortcutDown)
-            onAction = handle {
-              createConstraint()
-            }
+            onAction = handle { createConstraint() }
           },
           new MenuItem("Bind Variable") {
             accelerator = new KeyCodeCombination(KeyCode.B,

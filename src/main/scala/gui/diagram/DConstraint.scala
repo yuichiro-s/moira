@@ -96,7 +96,9 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
   // update appearance of the constraint
   def update() {
     val c = getConstraint()
-    relText.text = c.relStr
+
+    // avoid empty string being used to ensure the height is enough
+    relText.text = if (c.relStr == "") " " else c.relStr
 
     var newDVariableMap = Map[String, DVariable]()
     variables.children = c.vars match {
