@@ -28,6 +28,12 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
   def **(n: Int): PhysicalQuantity =
     PhysicalQuantity(Math.pow(value, n), unit ** n)
 
+  // Converts to an equivalent /PhysicalQuantity/ with the specified unit.
+  def convertUnit(newUnit: SIUnit): PhysicalQuantity = {
+    require(newUnit.dim == dim)
+    PhysicalQuantity(value * unit.factor / newUnit.factor, newUnit)
+  }
+
   // get an equivalent physical quantity with a unit whose factor is 1
   lazy val normalized: PhysicalQuantity = {
     val newValue = value * unit.factor

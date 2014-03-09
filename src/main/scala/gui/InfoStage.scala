@@ -4,7 +4,7 @@ import scalafx.Includes._
 import scalafx.stage.Stage
 import scalafx.scene.Scene
 import scalafx.scene.control.{Button,Label}
-import scalafx.scene.layout.{BorderPane,VBox}
+import scalafx.scene.layout.BorderPane
 
 import moira.gui.diagram.{Diagram,DParameter,DConstraint}
 
@@ -24,9 +24,7 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
   private val parameterInfoPane = new ParameterInfoPane()
 
   // information of constraint
-  private val constraintInfoPane = new VBox() {
-
-  }
+  private val constraintInfoPane = new ConstraintInfoPane()
 
   private val updateButton = new Button("Update") {
     onAction = handle {
@@ -34,6 +32,7 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
         case Some(obj) => {
           obj match {
             case dp: DParameter => parameterInfoPane.updateParameter()
+            case dc: DConstraint => constraintInfoPane.updateConstraint()
             case _ =>
           }
         }
@@ -59,7 +58,7 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
             }
             case dc: DConstraint => {
               // switch constraint
-              //constraintInfoPane.pc <== dc.constraintProperty
+              constraintInfoPane.pc <== dc.constraintProperty
               constraintInfoPane
             }
             case _ => emptyInfoPane

@@ -7,7 +7,7 @@ import scalafx.scene.input.MouseEvent
 
 import moira.world.World
 import moira.gui.InfoStage
-import moira.unit.{SIDim,SIUnit,CommonDims}
+import moira.unit.CommonDims
 
 class Diagram extends Pane {
   implicit val diagram: Diagram = this
@@ -18,8 +18,8 @@ class Diagram extends Pane {
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
 
   //var connections = Seq[DConnection]()
-  //var constraints = Seq[DConstraint]()
 
+  // parameters
   val pp1 = world().createParameter("abc", CommonDims.LENGTH, "km", None, None, None) match {
     case (w, pp) => { world() = w; pp }
   }
@@ -27,17 +27,27 @@ class Diagram extends Pane {
     case (w, pp) => { world() = w; pp }
   }
 
-  var dParams = new Group() {
+  var dParameters = new Group() {
     children = Seq(
       new DParameter(pp1, 100, 100),
-      new DParameter(pp2, 150, 200)
+      new DParameter(pp2, 200, 150)
+    )
+  }
+
+  // constraints
+  val pc1 = world().createConstraint("$x+$y=1km", Map()) match {
+    case (w, pc) => { world() = w; pc }
+  }
+  var dConstraints = new Group() {
+    children = Seq(
+      new DConstraint(pc1, 100, 200)
     )
   }
 
   // When empty space is clicked, the info window becomes empty.
   handleEvent(MouseEvent.MousePressed) { infoObject() = None }
 
-  content = Seq(dParams)
+  content = Seq(dParameters, dConstraints)
 
   val infoStage = new InfoStage()
   infoStage.show()
