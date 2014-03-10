@@ -7,10 +7,10 @@ import moira.unit.PhysicalQuantity
 // possibly incomplete constraints and parameters
 // This is what the user manipulates.
 case class World(
-  val constraints: Set[ProtoConstraint],
-  val parameters: Set[ProtoParameter],
-  val nextConstraintId: Int = 0,
-  val nextParameterId: Int = 0
+  constraints: Set[ProtoConstraint],
+  parameters: Set[ProtoParameter],
+  nextConstraintId: Int = 0,
+  nextParameterId: Int = 0
 ) {
 
   require(constraints.map(_.id).toSet.size == constraints.size,
@@ -166,4 +166,15 @@ case class World(
       copy(parameters = parameters - p)
     }
   }
+
+  // getter
+
+  def getParameterById(id: Int): Option[ProtoParameter] = {
+    parameters.find(_.id == id)
+  }
+
+  def getConstraintById(id: Int): Option[ProtoConstraint] = {
+    constraints.find(_.id == id)
+  }
+
 }

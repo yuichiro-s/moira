@@ -22,14 +22,14 @@ class ConstraintInfoPane()(implicit diagram: Diagram) extends VBox {
     // create new name
     val newRel = relField.text()
 
-    val (newWorld, newConst) = oldWorld.updateConstraint(
+    val (newWorld, _) = oldWorld.updateConstraint(
       oldConst.id, newRel, oldConst.paramMap)
 
     // update constraint
-    diagram.infoObject() match {
+/*    diagram.infoObject() match {
       case Some(dc: DConstraint) => dc.setConstraint(newConst)
       case _ => throw new IllegalStateException("DConstraint is not selected.")
-    }
+    }*/
 
     // update world
     diagram.world() = newWorld

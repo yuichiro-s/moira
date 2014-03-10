@@ -1,13 +1,13 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{BooleanProperty,DoubleProperty, ObjectProperty}
+import scalafx.beans.property.{DoubleProperty, ObjectProperty}
 import scalafx.scene.Group
 import scalafx.scene.layout.BorderPane
 import scalafx.scene.input.{KeyCode,KeyCombination,KeyCodeCombination,MouseEvent}
 import scalafx.scene.control.{MenuItem,MenuBar,Menu}
 
-import moira.world.{ProtoParameter,World}
+import moira.world.{ProtoParameter,ProtoConstraint,World}
 import moira.gui.InfoStage
 import moira.unit.{PhysicalQuantity,SIDim,CommonDims}
 
@@ -16,40 +16,30 @@ class Diagram extends BorderPane {
 
   // properties
   val world = ObjectProperty(new World(Set.empty, Set.empty))
+  val dParameters = ObjectProperty(Set[DParameter]())
+  val dConstraints = ObjectProperty(Set[DConstraint]())
+
+  // TODO: sets below have to be typed more specifically
   val selectedParameters = ObjectProperty(Set[DObject]())
   val selectedConstraints = ObjectProperty(Set[DObject]())
   val selectedVariables = ObjectProperty(Set[DObject]())
+  val selectedBindings = ObjectProperty(Set[DObject]())
+
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
   // position the user pressed mouse button on the screen the last time
   val lastMousePressedX = DoubleProperty(200d)
   val lastMousePressedY = DoubleProperty(200d)
 
-  //var connections = Seq[DConnection]()
-
-  // parameters
-  val pp1 = world().createParameter("abc", CommonDims.LENGTH, "km", None, None, None) match {
-    case (w, pp) => { world() = w; pp }
-  }
-  val pp2 = world().createParameter("def", CommonDims.MASS, "kg", None, None, None) match {
-    case (w, pp) => { world() = w; pp }
+  // Unselects objects.
+  def unselect() {
+    selectedParameters() = Set[DObject]()
+    selectedConstraints() = Set[DObject]()
+    selectedVariables() = Set[DObject]()
+    selectedBindings() = Set[DObject]()
   }
 
-  var dParameters = new Group() {
-    children = Seq(
-      new DParameter(pp1, 100, 100).group,
-      new DParameter(pp2, 200, 150).group
-    )
-  }
-
-  // constraints
-  val pc1 = world().createConstraint("$x+$y=1km", Map()) match {
-    case (w, pc) => { world() = w; pc }
-  }
-  var dConstraints = new Group() {
-    children = Seq(
-      new DConstraint(pc1, 100d, 200d).group
-    )
-  }
+  val parameterGroup = new Group()
+  val constraintGroup = new Group()
 
   // operations
 
@@ -59,8 +49,7 @@ class Diagram extends BorderPane {
 
     world() = world().createConstraint(relStr, paramMap) match {
       case (w, pc) => {
-        val newDConstraint = new DConstraint(pc, x, y)
-        dConstraints.children += newDConstraint.group
+        dConstraints() += new DConstraint(pc, x, y)
         w
       }
     }
@@ -80,10 +69,23 @@ class Diagram extends BorderPane {
     world() = world().createParameter(
       name, dim, displayUnit, lower, upper, value) match {
       case (w, pp) => {
-        val newDParameter = new DParameter(pp, x, y)
-        dParameters.children += newDParameter.group
+        dParameters() +=  new DParameter(pp, x, y)
         w
       }
+    }
+  }
+
+  def createBinding(dp: DParameter, dvs: Set[DVariable]) {
+    dvs foreach { dv: DVariable =>
+      val dc: DConstraint = dv.constraint
+      val pc: ProtoConstraint = dc.getConstraint()
+
+      val (newWorld, c) = world().updateConstraint(pc.id, pc.relStr, pc.paramMap.updated(dv.varName, dp.getParameter()))
+
+      println(c)
+
+      // update world
+      world() = newWorld
     }
   }
 
@@ -106,7 +108,23 @@ class Diagram extends BorderPane {
             accelerator = new KeyCodeCombination(KeyCode.B,
               KeyCombination.ShortcutDown)
             onAction = handle {
-              println("Bind Variable selected.")
+              if (selectedParameters().size == 1 &&
+                  selectedVariables().size > 0 &&
+                  selectedConstraints().size == 0 &&
+                  selectedBindings().size == 0) {
+                // if excatly one parameter and more than 0 variables are selected
+                val dp: DParameter = selectedParameters().head match {
+                  case dp: DParameter => dp
+                  case _ => throw new IllegalStateException("Non-parameter found in /selectedParameters/.")
+                }
+                val dvs: Set[DVariable] = selectedVariables() map {
+                  case dv: DVariable => dv
+                  case _ => throw new IllegalStateException("Non-variable found in /selectedVariables/.")
+                }
+                createBinding(dp, dvs)
+              } else {
+                println("Parameter and variables have to be selected.")
+              }
             }
           }
         )
@@ -126,16 +144,37 @@ class Diagram extends BorderPane {
     unselect()
   }
 
-  // Unselects objects.
-  def unselect() {
-    selectedParameters() = Set[DObject]()
-    selectedConstraints() = Set[DObject]()
-    selectedVariables() = Set[DObject]()
-  }
-
-  top = menuBar
-  center = new Group(dParameters, dConstraints)
-
   val infoStage = new InfoStage()
   infoStage.show()
+
+  top = menuBar
+  center = new Group(constraintGroup, parameterGroup)
+
+  // update GUI
+  dParameters onChange {
+    parameterGroup.content = dParameters().map(_.group)
+  }
+  dConstraints onChange {
+    constraintGroup.content = dConstraints().map(_.group)
+  }
+
+  // initial parameters
+  val pp1 = world().createParameter("abc", CommonDims.LENGTH, "km", None, None, None) match {
+    case (w, pp) => { world() = w; pp }
+  }
+  val pp2 = world().createParameter("def", CommonDims.MASS, "kg", None, None, None) match {
+    case (w, pp) => { world() = w; pp }
+  }
+  dParameters() = Set(
+    new DParameter(pp1, 100, 100),
+    new DParameter(pp2, 200, 150)
+  )
+
+  // initial constraints
+  val pc1 = world().createConstraint("$x+$y=1km", Map()) match {
+    case (w, pc) => { world() = w; pc }
+  }
+  dConstraints() = Set(
+    new DConstraint(pc1, 100d, 200d)
+  )
 }

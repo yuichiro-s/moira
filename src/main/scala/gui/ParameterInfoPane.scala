@@ -85,10 +85,10 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
       newLower, newUpper, newValue)
 
     // update parameter
-    diagram.infoObject() match {
+/*    diagram.infoObject() match {
       case Some(dp: DParameter) => dp.setParameter(newParam)
       case _ => throw new IllegalStateException("DParameter is not selected.")
-    }
+    }*/
 
     // update world
     diagram.world() = newWorld

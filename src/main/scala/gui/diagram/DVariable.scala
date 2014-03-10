@@ -2,19 +2,23 @@ package moira.gui.diagram
 
 import scalafx.Includes._
 import scalafx.scene.Group
-import scalafx.beans.property.DoubleProperty
+import scalafx.beans.property.{ObjectProperty, DoubleProperty}
 import scalafx.scene.shape.Circle
 import scalafx.scene.paint.Color
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
 
-class DVariable(constraint: DConstraint, varName: String, tx0: Double, ty0: Double)(implicit diagram: Diagram) extends DObject(diagram.selectedVariables) {
+class DVariable(val constraint: DConstraint, val varName: String, tx0: Double, ty0: Double)(implicit diagram: Diagram) extends DObject(diagram.selectedVariables) {
 
   // properties
-  private val x = DoubleProperty(0d)  // initialize with meaningless value
-  private val y = DoubleProperty(0d)  // initialize with meaningless value
-  private val tx = DoubleProperty(tx0)
-  private val ty = DoubleProperty(ty0)
+  val x = DoubleProperty(0d)  // initialize with meaningless value
+  val y = DoubleProperty(0d)  // initialize with meaningless value
+  val tx = DoubleProperty(tx0)
+  val ty = DoubleProperty(ty0)
+
+  val dBinding: ObjectProperty[Option[DBinding]] = ObjectProperty(None)
+
+  val bindingGroup = new Group()
 
   private val circle = makeSelectable(new Circle() {
     radius = 10d
@@ -41,5 +45,9 @@ class DVariable(constraint: DConstraint, varName: String, tx0: Double, ty0: Doub
   x <== constraint.x + tx
   y <== constraint.y + ty
 
-  override val group = new Group(circle, nameText)
+  dBinding onInvalidate {
+    bindingGroup.content = dBinding().toSeq.map(_.group)
+  }
+
+  override val group = new Group(circle, nameText, bindingGroup)
 }

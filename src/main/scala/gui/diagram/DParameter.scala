@@ -12,20 +12,18 @@ import moira.world.ProtoParameter
 
 class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: Diagram) extends DObject(diagram.selectedParameters) {
 
+  val pId = pp0.id
+
   // constants
   val RADIUS = 20d
-
-  val pId = pp0.id
 
   // properties
   val x = DoubleProperty(x0)
   val y = DoubleProperty(y0)
 
-  val parameter = ObjectProperty(pp0)
-  def setParameter(pp: ProtoParameter) {
-    require(pp.id == pId)
-    parameter() = pp
-  }
+  private val parameter = ObjectProperty(pp0)
+  def getParameter() = parameter()
+  val parameterProperty = parameter
 
   private val circle: Circle = makeSelectable(
     new Circle() {
@@ -74,11 +72,23 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
     }
   }
 
-  // initialization
-  update()
-
   // Update appearance when the parameter is changed.
   parameter.onChange(update)
 
+  // synchronize parameter with /diagram.world/
+  diagram.world onChange {
+    val pp = diagram.world().getParameterById(pId)
+    parameter() = pp match {
+      case Some(pp) => pp
+      case None => throw new IllegalStateException(
+        "%s is not found in %s.".format(
+          parameter(), diagram.world())
+      )
+    }
+  }
+
   override val group = new Group(circle, nameText, valueText)
+
+  // initialization
+  update()
 }

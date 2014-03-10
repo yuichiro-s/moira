@@ -4,7 +4,7 @@ import scalafx.Includes._
 import scalafx.beans.property.{DoubleProperty,ObjectProperty}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
-import scalafx.scene.shape.{Circle,Rectangle}
+import scalafx.scene.shape.Rectangle
 import scalafx.scene.Group
 import scalafx.scene.paint.Color
 
@@ -18,11 +18,11 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
   val x = DoubleProperty(x0)
   val y = DoubleProperty(y0)
 
-  val constraint = ObjectProperty(pc0)
-  def setConstraint(pc: ProtoConstraint) {
-    require(pc.id == cId)
-    constraint() = pc
-  }
+  private val constraint = ObjectProperty(pc0)
+  def getConstraint() = constraint()
+  val constraintProperty = constraint
+
+  val variableGroup = new Group()
 
   private val relText = new Text() {
     x <== DConstraint.this.x
@@ -54,12 +54,7 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
     }
   )
 
-  // map from variable name to corresponding DVariable
-  private var dVariableMap = Map[String, DVariable]()
-
-  private val dVariables = new Group() {
-    content = Seq()
-  }
+  private val dVariables = ObjectProperty(Set[DVariable]())
 
   // update appearance of the constraint
   def update() {
@@ -68,33 +63,62 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
     // avoid empty string being used to ensure the height is enough
     relText.text = if (c.relStr == "") " " else c.relStr
 
-    var newDVariableMap = Map[String, DVariable]()
+    // update variables
+    dVariables() = c.vars match {
+      case None => Set[DVariable]()   // constraint is not well-defined yet
+      case Some(vs) => vs.zipWithIndex map {
+        case (varName, i) => {
+          val dv = dVariables().find(_.varName == varName) match {
+            case Some(dv) => dv
+            case None => new DVariable(this, varName, 20d * i, 20d)
+          }
 
-    dVariables.content = c.vars match {
-      case None => Seq()
-      case Some(vs) => vs map { varName =>
-        dVariableMap.get(varName) match {
-          case Some(dv) => {
-            newDVariableMap += varName -> dv
-            dv.group
+          // update binding of the variable
+          c.paramMap.get(varName) match {
+            case None => {
+              // the variable is not bound
+              dv.dBinding() = None
+            }
+            case Some(pp) => {
+              // the variable is bound to parameter /pp/
+              val dp = diagram.dParameters().find(_.pId == pp.id)
+              dp match {
+                case None => throw new IllegalStateException(
+                  "/DParameter/ with id=%d is not found" +
+                    "in diagram.dParameters()".format(pp.id))
+                case Some(dp) => {
+                  dv.dBinding() = Some(new DBinding(dv, dp))
+                }
+              }
+            }
           }
-          case None => {
-            val dv = new DVariable(this, varName, 20d * (dVariableMap.size + newDVariableMap.size), 20d)
-            newDVariableMap += varName -> dv
-            dv.group
-          }
+
+          dv
         }
       }
     }
-
-    dVariableMap = newDVariableMap
   }
+
+  // Update appearance whenever the constraint is changed.
+  constraint onChange { update() }
+
+  // synchronize constraint with /diagram.world()/
+  diagram.world onChange {
+    val pc = diagram.world().getConstraintById(cId)
+    constraint() = pc match {
+      case Some(pc) => pc
+      case None => throw new IllegalStateException(
+        "%s is not found in %s.".format(constraint(), diagram.world()))
+    }
+  }
+
+  // update GUI
+  dVariables onChange {
+    variableGroup.content = dVariables().map(_.group)
+  }
+
+  override val group = new Group(rectangle, relText, variableGroup)
 
   // initialization
   update()
-
-  // Update appearance when the constraint is changed.
-  constraint onChange { update() }
-
-  override val group = new Group(rectangle, relText, dVariables)
 }
