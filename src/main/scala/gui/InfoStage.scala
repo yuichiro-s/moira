@@ -53,12 +53,12 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
           case Some(obj) =>  obj match {
             case dp: DParameter => {
               // switch parameter
-              parameterInfoPane.pp <== dp.parameterProperty
+              parameterInfoPane.pp <== dp.parameter
               parameterInfoPane
             }
             case dc: DConstraint => {
               // switch constraint
-              constraintInfoPane.pc <== dc.constraintProperty
+              constraintInfoPane.pc <== dc.constraint
               constraintInfoPane
             }
             case _ => emptyInfoPane

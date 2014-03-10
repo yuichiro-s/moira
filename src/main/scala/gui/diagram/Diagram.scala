@@ -18,6 +18,7 @@ class Diagram extends BorderPane {
   val world = ObjectProperty(new World(Set.empty, Set.empty))
   val selectedParameters = ObjectProperty(Set[DObject]())
   val selectedConstraints = ObjectProperty(Set[DObject]())
+  val selectedVariables = ObjectProperty(Set[DObject]())
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
   // position the user pressed mouse button on the screen the last time
   val lastMousePressedX = DoubleProperty(200d)
@@ -129,6 +130,7 @@ class Diagram extends BorderPane {
   def unselect() {
     selectedParameters() = Set[DObject]()
     selectedConstraints() = Set[DObject]()
+    selectedVariables() = Set[DObject]()
   }
 
   top = menuBar

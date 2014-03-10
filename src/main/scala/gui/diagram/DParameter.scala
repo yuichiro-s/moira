@@ -10,7 +10,7 @@ import scalafx.scene.paint.Color
 
 import moira.world.ProtoParameter
 
-class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: Diagram) extends DObject(x0, y0, diagram.selectedParameters) {
+class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: Diagram) extends DObject(diagram.selectedParameters) {
 
   // constants
   val RADIUS = 20d
@@ -18,9 +18,10 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
   val pId = pp0.id
 
   // properties
-  private val parameter = ObjectProperty(pp0)
-  def getParameter(): ProtoParameter = parameter()
-  val parameterProperty = parameter
+  val x = DoubleProperty(x0)
+  val y = DoubleProperty(y0)
+
+  val parameter = ObjectProperty(pp0)
   def setParameter(pp: ProtoParameter) {
     require(pp.id == pId)
     parameter() = pp
@@ -61,7 +62,7 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
 
   // update appearance of the parameter
   def update() {
-    val p = getParameter()
+    val p = parameter()
 
     nameText.text = p.name
     valueText.text = p.value match {

@@ -7,14 +7,12 @@ import scalafx.scene.shape.Shape
 import javafx.event.EventHandler
 import javafx.scene.input.MouseEvent
 
-abstract class DObject(x0: Double, y0: Double, selectedSet: ObjectProperty[Set[DObject]])(implicit diagram: Diagram) {
+abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagram: Diagram) {
 
   // actual node
   val group: Group
 
   // properties
-  protected val x = DoubleProperty(x0)
-  protected val y = DoubleProperty(y0)
   protected val selected = BooleanProperty(false)
 
   // Update selected
