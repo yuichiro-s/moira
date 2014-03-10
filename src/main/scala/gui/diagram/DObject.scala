@@ -35,4 +35,5 @@ abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagr
     node
   }
 
+
 }

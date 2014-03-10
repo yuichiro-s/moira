@@ -80,10 +80,10 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
     val pp = diagram.world().getParameterById(pId)
     parameter() = pp match {
       case Some(pp) => pp
-      case None => throw new IllegalStateException(
-        "%s is not found in %s.".format(
-          parameter(), diagram.world())
-      )
+      case None => {
+        // This parameter has been removed.
+        parameter() // This return value is meaningless.
+      }
     }
   }
 

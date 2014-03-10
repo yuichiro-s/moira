@@ -107,8 +107,10 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
     val pc = diagram.world().getConstraintById(cId)
     constraint() = pc match {
       case Some(pc) => pc
-      case None => throw new IllegalStateException(
-        "%s is not found in %s.".format(constraint(), diagram.world()))
+      case None => {
+        // This parameter has been removed.
+        constraint() // This return value is meaningless.
+      }
     }
   }
 

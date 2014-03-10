@@ -2,16 +2,16 @@ package moira.gui.diagram
 
 import scalafx.Includes._
 import scalafx.beans.property.{DoubleProperty, ObjectProperty}
-import scalafx.scene.Group
+import scalafx.scene.{Scene, Group}
 import scalafx.scene.layout.BorderPane
-import scalafx.scene.input.{KeyCode,KeyCombination,KeyCodeCombination,MouseEvent}
+import scalafx.scene.input.{KeyCode,KeyEvent,KeyCombination,KeyCodeCombination,MouseEvent}
 import scalafx.scene.control.{MenuItem,MenuBar,Menu}
 
 import moira.world.{ProtoParameter,ProtoConstraint,World}
 import moira.gui.InfoStage
 import moira.unit.{PhysicalQuantity,SIDim,CommonDims}
 
-class Diagram extends BorderPane {
+class Diagram extends Scene(400, 300) {
   implicit val diagram: Diagram = this
 
   // properties
@@ -26,6 +26,7 @@ class Diagram extends BorderPane {
   val selectedBindings = ObjectProperty(Set[DObject]())
 
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
+
   // position the user pressed mouse button on the screen the last time
   val lastMousePressedX = DoubleProperty(200d)
   val lastMousePressedY = DoubleProperty(200d)
@@ -49,7 +50,9 @@ class Diagram extends BorderPane {
 
     world() = world().createConstraint(relStr, paramMap) match {
       case (w, pc) => {
-        dConstraints() += new DConstraint(pc, x, y)
+        val newPc = new DConstraint(pc, x, y)
+        infoObject() = Some(newPc)
+        dConstraints() += newPc
         w
       }
     }
@@ -69,7 +72,9 @@ class Diagram extends BorderPane {
     world() = world().createParameter(
       name, dim, displayUnit, lower, upper, value) match {
       case (w, pp) => {
-        dParameters() +=  new DParameter(pp, x, y)
+        val newDp = new DParameter(pp, x, y)
+        infoObject() = Some(newDp)
+        dParameters() += newDp
         w
       }
     }
@@ -80,13 +85,60 @@ class Diagram extends BorderPane {
       val dc: DConstraint = dv.constraint
       val pc: ProtoConstraint = dc.getConstraint()
 
-      val (newWorld, c) = world().updateConstraint(pc.id, pc.relStr, pc.paramMap.updated(dv.varName, dp.getParameter()))
-
-      println(c)
+      val (newWorld, _) = world().updateConstraint(pc.id, pc.relStr, pc.paramMap.updated(dv.varName, dp.getParameter()))
 
       // update world
       world() = newWorld
     }
+  }
+
+  def removeSelectedObjects() {
+    val dbs: Set[DBinding] = selectedBindings() collect { case b: DBinding => b }
+    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
+    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
+
+    var tmpWorld = world()
+
+    // remove bindings
+    dbs foreach { b =>
+      val dv = b.variable
+      val dp = b.parameter
+      val dc = dv.constraint
+      val pc = dc.getConstraint()
+
+      assert(dp.getParameter() == pc.paramMap(dv.varName),
+        "Variable %s is not bound to %s.".format(dv.varName, dp.getParameter()))
+
+      // remove binding
+      tmpWorld = tmpWorld.updateConstraint(pc.id, pc.relStr, pc.paramMap - dv.varName)._1
+    }
+
+    // remove constraints
+    dcs foreach { dc =>
+      tmpWorld = tmpWorld.removeConstraint(dc.cId)
+    }
+
+    // remove parameters and connected bindings
+    dps foreach { dp =>
+      // remove bindings connected to the parameter
+      tmpWorld.constraints foreach { pc =>
+        pc.paramMap foreach {
+          case (varName, pp) => {
+            if (pp.id == dp.pId) {
+              assert(dp.getParameter() == pc.paramMap(varName),
+                "The state of parameter(id=%d) is inconsistent.".format(pp.id))
+              tmpWorld = tmpWorld.updateConstraint(pc.id, pc.relStr, pc.paramMap - varName)._1
+            }
+          }
+        }
+      }
+
+      // remove parameter
+      tmpWorld = tmpWorld.removeParameter(dp.pId)
+    }
+
+    // update /world/
+    world() = tmpWorld
   }
 
   // menu bar
@@ -132,7 +184,7 @@ class Diagram extends BorderPane {
     )
   }
 
-  handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
+  onMousePressed = { me: MouseEvent =>
     // When empty space is clicked, the info window becomes empty.
     infoObject() = None
 
@@ -144,11 +196,21 @@ class Diagram extends BorderPane {
     unselect()
   }
 
+  // key event
+  onKeyPressed = { ke: KeyEvent =>
+    ke.code match {
+      case KeyCode.DELETE | KeyCode.BACK_SPACE => removeSelectedObjects()
+      case _ =>
+    }
+  }
+
+  root = new BorderPane() {
+    top = menuBar
+    center = new Group(constraintGroup, parameterGroup)
+  }
+
   val infoStage = new InfoStage()
   infoStage.show()
-
-  top = menuBar
-  center = new Group(constraintGroup, parameterGroup)
 
   // update GUI
   dParameters onChange {
@@ -156,6 +218,32 @@ class Diagram extends BorderPane {
   }
   dConstraints onChange {
     constraintGroup.content = dConstraints().map(_.group)
+  }
+
+  // synchronize /dParameters/ and /dConstraints/ with /world/
+  world onChange {
+    val pps = world().parameters
+    val pcs = world().constraints
+
+    // Remove parameters and constraints that are not in /world/ any more.
+    dParameters() = dParameters().filter { dp => pps.exists(_.id == dp.pId) }
+    dConstraints() = dConstraints().filter { dc => pcs.exists(_.id == dc.cId) }
+
+    // If the object which the info window is currently showing no longer exists,
+    // set the info window to empty.
+    infoObject() match {
+      case Some(dp: DParameter) => {
+        if (!pps.exists(_.id == dp.pId)) {
+          infoObject() = None
+        }
+      }
+      case Some(dc: DConstraint) => {
+        if (!pcs.exists(_.id == dc.cId)) {
+          infoObject() = None
+        }
+      }
+      case _ =>
+    }
   }
 
   // initial parameters

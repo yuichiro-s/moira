@@ -27,7 +27,8 @@ case class World(
       case Some(c) => f(c)
       case None => {
         // fails if a /ProtoConstraint/ with the /id/ is not found.
-        throw new IllegalArgumentException("ProtoConstraint(id=%d) not found.".format(id))
+        throw new IllegalArgumentException(
+          "ProtoConstraint(id=%d) not found in %s.".format(id, this))
       }
     }
   }
@@ -99,7 +100,8 @@ case class World(
       case Some(p) => f(p)
       case None => {
         // fails if a /ProtoParameter/ with the /id/ is not found.
-        throw new IllegalArgumentException("ProtoParameter(id=%d) not found.".format(id))
+        throw new IllegalArgumentException(
+          "ProtoParameter(id=%d) not found in %s.".format(id, this))
       }
     }
   }

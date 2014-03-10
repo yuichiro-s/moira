@@ -10,10 +10,12 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
   val rel: Option[Rel] = Parser.parseRel(relStr)
   val vars: Option[Set[String]] = rel.map(_.vars)
   
-  require(vars match {
-    case None => true
-    case Some(vs) => paramMap.keys.forall(vs.contains(_))
-  }, "All variables in /paramMap/ must also appear in /rel/.")
+  vars match {
+    case None => assert(paramMap == Map(),
+      "/paramMap/ must be None when /relStr/ is not parsable.")
+    case Some(vs) => assert(paramMap.keys.forall(vs.contains(_)),
+      "All variables in /paramMap/ must also appear in /rel/.")
+  }
 
   // Returns variables that do not appear in /paramMap/.
   lazy val disconnectedVariables: Option[Set[String]] = {

@@ -1,12 +1,13 @@
 package moira.gui
 
 
+import moira.expression.Parser
 import scalafx.beans.property.ObjectProperty
 import scalafx.scene.control.{Label,TextField}
 import scalafx.scene.layout.{HBox,VBox}
 
 import moira.gui.diagram.{DConstraint, Diagram}
-import moira.world.{World, ProtoConstraint}
+import moira.world.{ProtoParameter, World, ProtoConstraint}
 
 class ConstraintInfoPane()(implicit diagram: Diagram) extends VBox {
   val pc = ObjectProperty(ProtoConstraint())
@@ -22,14 +23,20 @@ class ConstraintInfoPane()(implicit diagram: Diagram) extends VBox {
     // create new name
     val newRel = relField.text()
 
-    val (newWorld, _) = oldWorld.updateConstraint(
-      oldConst.id, newRel, oldConst.paramMap)
+    // remove binding for variables which do not appear in /rel/
+    val newParamMap: Map[String, ProtoParameter] = {
+      Parser.parseRel(newRel) match {
+        case Some(rel) => {
+          oldConst.paramMap.filter {
+            case (varName, _) => rel.vars.contains(varName)
+          }
+        }
+        case None => Map()
+      }
+    }
 
-    // update constraint
-/*    diagram.infoObject() match {
-      case Some(dc: DConstraint) => dc.setConstraint(newConst)
-      case _ => throw new IllegalStateException("DConstraint is not selected.")
-    }*/
+    val (newWorld, _) = oldWorld.updateConstraint(
+      oldConst.id, newRel, newParamMap)
 
     // update world
     diagram.world() = newWorld
