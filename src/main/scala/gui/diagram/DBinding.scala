@@ -10,7 +10,7 @@ class DBinding(val variable: DVariable, val parameter: DParameter)(implicit diag
 
   private val line = makeSelectable(new Line() {
     stroke <== when (hover) choose Color.LIGHTGRAY otherwise Color.INDIGO
-    strokeWidth <== when (selected) choose 4 otherwise 1
+    strokeWidth <== when (selected) choose 4 otherwise 2
 
     // start point is variable
     startX <== variable.x

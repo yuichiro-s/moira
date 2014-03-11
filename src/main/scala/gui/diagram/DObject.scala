@@ -19,6 +19,7 @@ abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagr
     selected() = selectedSet().contains(this)
   }
 
+  // Makes the shape selectable.
   protected def makeSelectable[S <: Shape](node: S): S = {
     val handler = new EventHandler[MouseEvent] {
       def handle(me: MouseEvent) {
@@ -34,6 +35,5 @@ abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagr
     node.addEventHandler(MouseEvent.MOUSE_PRESSED, handler)
     node
   }
-
 
 }

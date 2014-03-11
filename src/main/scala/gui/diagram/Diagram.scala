@@ -1,7 +1,7 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{DoubleProperty, ObjectProperty}
+import scalafx.beans.property.ObjectProperty
 import scalafx.scene.{Scene, Group}
 import scalafx.scene.layout.BorderPane
 import scalafx.scene.input.{KeyCode,KeyEvent,KeyCombination,KeyCodeCombination,MouseEvent}
@@ -27,9 +27,8 @@ class Diagram extends Scene(400, 300) {
 
   val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
 
-  // position the user pressed mouse button on the screen the last time
-  val lastMousePressedX = DoubleProperty(200d)
-  val lastMousePressedY = DoubleProperty(200d)
+  case class MouseInfo(lastPressedX: Double, lastPressedY: Double)
+  val mouseInfo = ObjectProperty(MouseInfo(200d, 200d))
 
   // Unselects objects.
   def unselect() {
@@ -45,8 +44,8 @@ class Diagram extends Scene(400, 300) {
   // operations
 
   def createConstraint(relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {
-    val x = lastMousePressedX()
-    val y = lastMousePressedY()
+    val x = mouseInfo().lastPressedX
+    val y = mouseInfo().lastPressedY
 
     world() = world().createConstraint(relStr, paramMap) match {
       case (w, pc) => {
@@ -66,8 +65,8 @@ class Diagram extends Scene(400, 300) {
     upper: Option[PhysicalQuantity] = None,
     value: Option[PhysicalQuantity] = None
   ) {
-    val x = lastMousePressedX()
-    val y = lastMousePressedY()
+    val x = mouseInfo().lastPressedX
+    val y = mouseInfo().lastPressedY
 
     world() = world().createParameter(
       name, dim, displayUnit, lower, upper, value) match {
@@ -184,13 +183,50 @@ class Diagram extends Scene(400, 300) {
     )
   }
 
+  def startDrag(x: Double, y: Double) {
+    mouseInfo() = MouseInfo(x, y)
+
+    val dvs: Set[DVariable] = selectedVariables() collect { case v: DVariable => v }
+    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
+    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
+
+    dvs.foreach { dv => dv.setDragInfo(dv.tx(), dv.ty()) }
+    dcs.foreach { dc => dc.setDragInfo(dc.x(), dc.y()) }
+    dps.foreach { dp => dp.setDragInfo(dp.x(), dp.y()) }
+  }
+
+  def drag(x: Double, y: Double) {
+    val dvs: Set[DVariable] = selectedVariables() collect { case v: DVariable => v }
+    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
+    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
+
+    val dx = x - mouseInfo().lastPressedX
+    val dy = y - mouseInfo().lastPressedY
+
+    dvs.foreach { dv =>
+      if (!dcs.contains(dv.constraint)) {
+        // /DVariable/ follows its parent /DConstraint/, so don't move /dv/
+        // when its parent /dc/ is also dragged.
+        dv.tx() = dv.dragInfo().x0 + dx
+        dv.ty() = dv.dragInfo().y0 + dy
+      }
+    }
+    dcs.foreach { dc =>
+      dc.x() = dc.dragInfo().x0 + dx
+      dc.y() = dc.dragInfo().y0 + dy
+    }
+    dps.foreach { dp =>
+      dp.x() = dp.dragInfo().x0 + dx
+      dp.y() = dp.dragInfo().y0 + dy
+    }
+  }
+
   onMousePressed = { me: MouseEvent =>
     // When empty space is clicked, the info window becomes empty.
     infoObject() = None
 
     // change last mouse pressed position
-    lastMousePressedX() = me.x
-    lastMousePressedY() = me.y
+    mouseInfo() = MouseInfo(me.x, me.y)
 
     // unselect objects
     unselect()

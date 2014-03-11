@@ -10,7 +10,7 @@ import scalafx.scene.paint.Color
 
 import moira.world.ProtoParameter
 
-class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: Diagram) extends DObject(diagram.selectedParameters) {
+class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit val diagram: Diagram) extends DObject(diagram.selectedParameters) with Draggable {
 
   val pId = pp0.id
 
@@ -25,23 +25,23 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit diagram: 
   def getParameter() = parameter()
   val parameterProperty = parameter
 
-  private val circle: Circle = makeSelectable(
-    new Circle() {
-      radius = RADIUS
-      centerX <== DParameter.this.x
-      centerY <== DParameter.this.y
-      stroke = Color.RED
-      strokeWidth <== when(selected) choose 4 otherwise 2
-      fill <== when (hover) choose Color.LIGHTYELLOW otherwise Color.LIGHTPINK
+  private val circle: Circle = makeDraggable(
+    makeSelectable(
+      new Circle() {
+        radius = RADIUS
+        centerX <== DParameter.this.x
+        centerY <== DParameter.this.y
+        stroke = Color.RED
+        strokeWidth <== when(selected) choose 4 otherwise 2
+        fill <== when (hover) choose Color.LIGHTYELLOW otherwise Color.LIGHTPINK
 
-      handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
-        // show the information of the parameter
-        diagram.infoObject() = Some(DParameter.this)
+        handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
+          // show the information of the parameter
+          diagram.infoObject() = Some(DParameter.this)
 
-        me.consume()
-      }
-    }
-  )
+          me.consume()
+        }
+      }))
 
   private val nameText = new Text() {
     x <== DParameter.this.x

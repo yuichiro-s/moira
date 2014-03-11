@@ -10,13 +10,15 @@ import scalafx.scene.paint.Color
 
 import moira.world.ProtoConstraint
 
-class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram: Diagram) extends DObject(diagram.selectedConstraints) {
+class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val diagram: Diagram) extends DObject(diagram.selectedConstraints) with Draggable {
 
   val cId = pc0.id
 
   // properties
   val x = DoubleProperty(x0)
   val y = DoubleProperty(y0)
+  val centerX = DoubleProperty(x0)
+  val centerY = DoubleProperty(y0)
 
   private val constraint = ObjectProperty(pc0)
   def getConstraint() = constraint()
@@ -31,28 +33,29 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
     mouseTransparent = true
   }
 
-  private val rectangle = makeSelectable(
-    new Rectangle() {
-      x <== DConstraint.this.x
-      y <== DConstraint.this.y
-      stroke = Color.TOMATO
-      strokeWidth <== when(selected) choose 4 otherwise 2
-      fill <== when (hover) choose Color.LIGHTGREEN otherwise Color.GREEN
+  private val rectangle = makeDraggable(
+    makeSelectable(
+      new Rectangle() {
+        x <== DConstraint.this.x
+        y <== DConstraint.this.y
+        stroke = Color.TOMATO
+        strokeWidth <== when(selected) choose 4 otherwise 2
+        fill <== when (hover) choose Color.LIGHTGREEN otherwise Color.GREEN
 
-      handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
-        // show the information of the constraint
-        diagram.infoObject() = Some(DConstraint.this)
+        handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
+          // show the information of the constraint
+          diagram.infoObject() = Some(DConstraint.this)
 
-        me.consume()
+          me.consume()
+        }
+
+        // Resize the rectangle when the text changes.
+        relText.boundsInLocalProperty onChange {
+          width = relText.boundsInLocal().width
+          height = relText.boundsInLocal().height
+        }
       }
-
-      // Resize the rectangle when the text changes.
-      relText.boundsInLocalProperty onChange {
-        width = relText.boundsInLocal().width
-        height = relText.boundsInLocal().height
-      }
-    }
-  )
+    ))
 
   private val dVariables = ObjectProperty(Set[DVariable]())
 
@@ -119,7 +122,10 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit diagram
     variableGroup.content = dVariables().map(_.group)
   }
 
-  override val group = new Group(rectangle, relText, variableGroup)
+  centerX <== x + rectangle.width / 2
+  centerY <== y + rectangle.height / 2
+
+  override val group = new Group(variableGroup, rectangle, relText)
 
   // initialization
   update()
