@@ -135,4 +135,5 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
       }
     }
   }
+
 }

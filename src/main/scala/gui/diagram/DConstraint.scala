@@ -127,6 +127,18 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
 
   override val group = new Group(variableGroup, rectangle, relText)
 
+  def toXML(): xml.Elem = {
+    val c = constraint()
+    <constraint>
+      <id>{c.id}</id>
+      <rel>{c.relStr}</rel>
+      <bind>{for ((v, p) <- c.paramMap) yield <var>{v}</var><pid>{p.id}</pid>}</bind>
+      <x>{x()}</x>
+      <y>{y()}</y>
+    </constraint>
+  }
+
+
   // initialization
   update()
 }

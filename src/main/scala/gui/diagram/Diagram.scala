@@ -193,6 +193,10 @@ class Diagram extends Scene(400, 300) {
     selectedParameters() = Set[DObject]() ++ dParameters()
   }
 
+  def save() {
+    println(toXML())
+  }
+
   // menu bar
   val menuBar = new MenuBar {
     menus = Seq(
@@ -240,6 +244,11 @@ class Diagram extends Scene(400, 300) {
             accelerator = new KeyCodeCombination(KeyCode.A,
               KeyCombination.ShortcutDown)
             onAction = handle { selectAll() }
+          },
+          new MenuItem("Save") {
+            accelerator = new KeyCodeCombination(KeyCode.S,
+              KeyCombination.ShortcutDown)
+            onAction = handle { save() }
           }
         )
       }
@@ -346,6 +355,11 @@ class Diagram extends Scene(400, 300) {
       case _ =>
     }
   }
+
+  def toXML(): xml.Elem = <world>
+    { dConstraints().map(_.toXML()) }
+    { dParameters().map(_.toXML()) }
+    </world>
 
   // initial parameters
   implicit def pq(str: String): Option[PhysicalQuantity] = {
