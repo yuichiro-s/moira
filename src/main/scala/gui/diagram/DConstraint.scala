@@ -57,7 +57,7 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
       }
     ))
 
-  private val dVariables = ObjectProperty(Set[DVariable]())
+  val dVariables = ObjectProperty(Set[DVariable]())
 
   // update appearance of the constraint
   def update() {

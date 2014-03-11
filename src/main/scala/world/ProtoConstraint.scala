@@ -17,12 +17,17 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
       "All variables in /paramMap/ must also appear in /rel/.")
   }
 
+  // whether it's ready to be converted to a /Constraint/
+  lazy val isWellDefined: Boolean = {
+    disconnectedVariables == Some(Set.empty) && isConsistent
+  }
+
   // Returns variables that do not appear in /paramMap/.
   lazy val disconnectedVariables: Option[Set[String]] = {
     vars.map(_.filter { v => !paramMap.isDefinedAt(v) })
   }
 
-  // Finds inconsistent pair of /Expr/s.
+  // Checks consistency in dimensions.
   lazy val isConsistent: Boolean = {
     def getDim(e: Expr): Option[SIDim] = {
       e match {
@@ -57,6 +62,7 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
       case Some(rel) => {
         (getDim(rel.lhs), getDim(rel.rhs)) match {
           case (Some(dim1), Some(dim2)) => {
+            // It is allowed to compare 0 with any dimensional values
             dim1 == dim2 || rel.lhs == Value(PQZero) || rel.rhs == Value(PQZero)
           }
           case _ => false
@@ -66,11 +72,29 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
   }
 
   lazy val toConstraint: Option[Constraint] = {
-    if (disconnectedVariables.size > 0 || !isConsistent) {
+    if (!isWellDefined) {
       None
     } else {
       // convert related /ProtoParameter/s to /Parameter/s
-      val embodiedParamMap: Map[String, Option[Parameter]] = paramMap.mapValues(_.toParameter)
+
+      // partition into parameters with defined values and undefined values
+      val (undefs, defs) = paramMap.partition {
+        // allow only parameters with undefined value
+        case (_, pp) => !pp.value.isDefined
+      }
+
+      val embodiedParamMap: Map[String, Option[Parameter]] = undefs.mapValues(_.toParameter)
+
+      // bind defined values to the /rel/
+      assert(rel != None, "Relation definition should be able to be parsed.")
+      val boundRel: Rel = rel.get.bind(defs.mapValues { pp =>
+        // create bindings from already defined parameters
+        pp.value match {
+          case None => throw new IllegalStateException(
+            "/defs/ should contain only /ProtoParameter/s with defined values.")
+          case Some(pq) => pq
+        }
+      })
 
       // if any of the connected /ProtoParameter/s cannot be embodied,
       // it's not possible to convert it into a /ProtoConstraint/.
@@ -93,14 +117,13 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
           case (a, b) => (a.toMap, b)
         }
         // renamed /rel/
-        assert(rel != None, "Relation definition should be able to be parsed.")
-        val newRel = xys.foldLeft(rel.get) {
+        val renamedRel = xys.foldLeft(boundRel) {
           case (r, (x, ys)) => r.unify(x, ys)
         }
 
-        // current version doesn't take into consideration whether
+        // TODO: current version doesn't take into consideration whether
         // there is an equal sign in the inequality.
-        val (t, lhs, rhs) = newRel match {
+        val (t, lhs, rhs) = renamedRel match {
           case Rel(RelType.Eq,   lhs, rhs) => (ConstraintType.Eq, lhs, rhs)
           case Rel(RelType.Gt,   lhs, rhs) => (ConstraintType.InEq, lhs, rhs)
           case Rel(RelType.GtEq, lhs, rhs) => (ConstraintType.InEq, lhs, rhs)

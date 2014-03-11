@@ -1,16 +1,14 @@
 package moira.gui
 
-import moira.unit.PhysicalQuantity
-import scalafx.Includes._
+import moira.unit.{SIUnit, PhysicalQuantity, CommonDims, CommonUnits}
 import scalafx.beans.property.ObjectProperty
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.Node
 import scalafx.scene.control.{Label,TextField,ComboBox}
 import scalafx.scene.layout.{HBox,VBox}
 
-import moira.gui.diagram.{Diagram,DParameter}
+import moira.gui.diagram.Diagram
 import moira.world.{World,ProtoParameter}
-import moira.unit.{CommonDims,CommonUnits}
 
 class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
   val pp = ObjectProperty(ProtoParameter())
@@ -63,7 +61,7 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
     val newDisplayUnit = unitBox.value()
 
     // create new lower, upper, value
-    val unit = CommonUnits.nameToUnit.get(newDisplayUnit) match {
+    val unit: SIUnit = CommonUnits.nameToUnit.get(newDisplayUnit) match {
       case Some(u) => u
       case None => throw new IllegalStateException(
         "%s is not a known unit.".format(newDisplayUnit))
@@ -80,15 +78,9 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
     val newUpper = createPQ(upperField.text())
     val newValue = createPQ(valueField.text())
 
-    val (newWorld, newParam) = oldWorld.updateParameter(
+    val (newWorld, _) = oldWorld.updateParameter(
       oldParam.id, newName, newDim, newDisplayUnit,
       newLower, newUpper, newValue)
-
-    // update parameter
-/*    diagram.infoObject() match {
-      case Some(dp: DParameter) => dp.setParameter(newParam)
-      case _ => throw new IllegalStateException("DParameter is not selected.")
-    }*/
 
     // update world
     diagram.world() = newWorld
@@ -115,7 +107,13 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
 
     // update valueField, lowerField, and upperField
     def opqToStr(opq: Option[PhysicalQuantity]) = opq match {
-      case Some(pq) => pq.value.toString
+      case Some(pq) => {
+        p.unit match {
+          case Some(u) => pq.convertUnit(u).value.toString
+          case None => throw new IllegalStateException(
+            "%s is not a known unit.".format(p.displayUnit))
+        }
+      }
       case None => ""
     }
     valueField.text = opqToStr(p.value)

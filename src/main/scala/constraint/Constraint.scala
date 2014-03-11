@@ -1,7 +1,6 @@
 package moira.constraint
 
 import moira.unit.PhysicalQuantity
-import moira.expression.Rel
 import moira.expression.Expr
 import moira.expression.BinOp
 import moira.expression.BinOpType
@@ -52,7 +51,7 @@ case class Constraint(id: Int, cType: ConstraintType, lhs: Expr, rhs: Expr, para
   def bind(bs: Map[Parameter, PhysicalQuantity]): Constraint = {
     // create a map of (variable name -> physical quantity), which can be
     // later applied to lhs and rhs
-    val bindings: Map[String, PhysicalQuantity]= (vars.toSeq map { name =>
+    val bindings: Map[String, PhysicalQuantity] = (vars.toSeq map { name =>
       bs.get(paramMap(name)) match {
         case Some(pq) => Some(name -> pq)
         case None => None

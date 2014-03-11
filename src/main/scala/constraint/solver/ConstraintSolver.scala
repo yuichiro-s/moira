@@ -42,29 +42,31 @@ object ConstraintSolver {
   }
 
   def solve(cs: Set[Constraint]): Option[Bindings] = {
-    if (cs.size == 0) {
+    // check if all constant constraints are satisfied
+    val (constants, restCs) = cs.partition(_.isConstant)
+    if (constants.exists(_.satisfied(eps) != Some(true))) {
+      // There's an unsatisfied constant constraint.
+      return None
+    }
+
+    if (restCs.isEmpty) {
       // successfully solved
       Some(Map.empty)
     } else {
       // use iterator so that all strategies don't get used at once
-      strategies.iterator.map(_(cs)).foreach { bss =>
-        bss.foreach { bs0 =>
+      strategies.iterator.map(_(restCs)) foreach { bss =>
+        bss foreach { bs0 =>
           if (checkRange(bs0)) {
-            val newCs = cs.map(_.bind(bs0))
-            val (constants, restCs) = newCs.partition(_.isConstant)
-
-            // check if all constant constraints are satisfied under this bindings
-            val isValid = constants.forall(_.satisfied(eps) == Some(true))
-            if (isValid) {
-              solve(restCs) match {  // solve remaining constraints
-                case None => {
-                  // impossible to solve with the current bindings
-                  // try with next candidate
-                }
-                case Some(bs) => {
-                  // remaining constraints are solved
-                  return Some(bs0 ++ bs)  
-                }
+            // if all binding values are within ranges
+            val newCs = restCs.map(_.bind(bs0))
+            solve(newCs) match {  // solve remaining constraints
+              case None => {
+                // impossible to solve with the current bindings
+                // try with next candidate
+              }
+              case Some(bs) => {
+                // remaining constraints are solved
+                return Some(bs0 ++ bs)
               }
             }
           }
@@ -216,13 +218,16 @@ object ConstraintSolver {
 
   // Picks the most constrained variable and binds it randomly.
   def bindMostConstrainedVariable(trialNum: Int)(cs: Set[Constraint]): BindingCandidates = {
-    val constraintCount = collection.mutable.Map[Parameter, Int]()
+    var constraintCount = Map[Parameter, Int]()
     // count the occurrence of each parameter
     cs foreach { c => 
       c.params foreach { p =>
         constraintCount += p -> (constraintCount.getOrElse(p, 0) + 1)
       }
     }
+
+    require(constraintCount.nonEmpty, "There is no variable in %s.".format(cs))
+
     // sequence of most constrained variables
     val mostConstrainedPs: Seq[Parameter] = {
       val maxCount: Int = constraintCount.maxBy(_._2)._2

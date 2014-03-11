@@ -150,7 +150,7 @@ case class World(
     upper: Option[PhysicalQuantity],
     value: Option[PhysicalQuantity]
   ): (World, ProtoParameter) = withParameterId(id) { p =>
-    val newParam = p.copy(
+    val newParam: ProtoParameter = p.copy(
       name = name,
       dim = dim,
       displayUnit = displayUnit,
@@ -158,9 +158,19 @@ case class World(
       upper = upper,
       value = value
     )
-    val newWorld = removeParameter(id)
-    val newWorld2 = newWorld.copy(parameters = newWorld.parameters + newParam)
-    (newWorld2, newParam)
+    var newWorld = removeParameter(id)
+    newWorld = newWorld.copy(parameters = newWorld.parameters + newParam)
+
+    // update /paramMap/ of /ProtoConstraint/s related to the parameter.
+    constraints foreach { pc =>
+      val newParamMap = pc.paramMap.mapValues { pp =>
+        // update /ProtoParameter/ if
+        if (pp.id == id) newParam else pp
+      }
+      newWorld = newWorld.updateConstraint(pc.id, pc.relStr, newParamMap)._1
+    }
+
+    (newWorld, newParam)
   }
 
   def removeParameter(id: Int): World = {
