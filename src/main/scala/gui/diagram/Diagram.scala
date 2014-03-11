@@ -241,8 +241,10 @@ class Diagram extends Scene(400, 300) {
   }
 
   root = new BorderPane() {
+    center = new Group(constraintGroup, parameterGroup) {
+      managed = false
+    }
     top = menuBar
-    center = new Group(constraintGroup, parameterGroup)
   }
 
   val infoStage = new InfoStage()
