@@ -13,6 +13,9 @@ import moira.world.{ProtoParameter,ProtoConstraint,World}
 import moira.gui.InfoStage
 import moira.unit.{PhysicalQuantity,SIDim,CommonDims}
 import moira.constraint.solver.ConstraintSolver
+import scalafx.stage.{FileChooser,Stage}
+import java.io.File
+import scala.xml.XML
 
 class Diagram extends Scene(400, 300) {
   implicit val diagram: Diagram = this
@@ -194,7 +197,9 @@ class Diagram extends Scene(400, 300) {
   }
 
   def save() {
-    println(toXML())
+    val fileChooser = new FileChooser()
+    val f: File = fileChooser.showSaveDialog(new Stage())
+    XML.save(f.getPath(), toXML(), "UTF-8")
   }
 
   // menu bar
