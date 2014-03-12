@@ -1,9 +1,10 @@
 package moira.world
 
 import moira.constraint.{Constraint,ConstraintType,Parameter}
-import moira.expression.{Expr,Rel,RelType,BinOp,BinOpType,Var,Value,Funcall,Parser}
+import moira.expression.{Expr,Rel,RelType,BinOp,BinOpType,Var,Funcall,Parser}
 import moira.unit.SIDim
 import moira.unit.PQZero
+import moira.expression.Value
 
 // Parameter whose definition can be incomplete.
 case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {

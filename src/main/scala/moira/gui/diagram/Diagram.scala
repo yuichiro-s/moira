@@ -1,7 +1,5 @@
 package moira.gui.diagram
 
-import moira.constraint.Constraint
-import moira.expression.{Value, Parser}
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
 import scalafx.scene.{Scene, Group}
@@ -13,6 +11,8 @@ import moira.world.{ProtoParameter,ProtoConstraint,World}
 import moira.gui.InfoStage
 import moira.unit.{PhysicalQuantity,SIDim,CommonDims}
 import moira.constraint.solver.ConstraintSolver
+import moira.constraint.Constraint
+import moira.expression.{Value,Parser}
 import scalafx.stage.{FileChooser,Stage}
 import java.io.File
 import scala.xml.XML
@@ -238,7 +238,7 @@ class Diagram extends Scene(400, 300) {
                   selectedVariables().size > 0 &&
                   selectedConstraints().size == 0 &&
                   selectedBindings().size == 0) {
-                // if excatly one parameter and more than 0 variables are selected
+                // if exactly one parameter and more than 0 variables are selected
                 val dp: DParameter = selectedParameters().head match {
                   case dp: DParameter => dp
                   case _ => throw new IllegalStateException("Non-parameter found in /selectedParameters/.")
