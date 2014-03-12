@@ -198,6 +198,18 @@ class Diagram extends Scene(400, 300) {
     selectedParameters() = Set[DObject]() ++ dParameters()
   }
 
+  def unsetVariables() {
+    var newWorld = world()
+    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
+
+    dps foreach { dp =>
+      val pp: ProtoParameter = dp.getParameter()
+      newWorld = newWorld.updateParameter(pp.id, pp.name, pp.dim, pp.displayUnit, pp.lower, pp.upper, None)._1
+    }
+
+    world() = newWorld
+  }
+
   def save() {
     val fileChooser = new FileChooser()
     val f: File = fileChooser.showSaveDialog(new Stage())
@@ -257,6 +269,11 @@ class Diagram extends Scene(400, 300) {
             accelerator = new KeyCodeCombination(KeyCode.K,
               KeyCombination.ShortcutDown)
             onAction = handle { calculate() }
+          },
+          new MenuItem("Unset Variables") {
+            accelerator = new KeyCodeCombination(KeyCode.D,
+              KeyCombination.ShortcutDown)
+            onAction = handle { unsetVariables() }
           },
           new MenuItem("Select All") {
             accelerator = new KeyCodeCombination(KeyCode.A,
