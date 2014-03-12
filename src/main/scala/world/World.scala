@@ -1,7 +1,6 @@
 package moira.world
 
 import moira.unit.SIDim
-import moira.unit.SIUnit
 import moira.unit.PhysicalQuantity
 
 // possibly incomplete constraints and parameters
@@ -13,10 +12,10 @@ case class World(
   nextParameterId: Int = 0
 ) {
 
-  require(constraints.map(_.id).toSet.size == constraints.size,
+  require(constraints.map(_.id).size == constraints.size,
     "No two constraints should have the same id.")
 
-  require(parameters.map(_.id).toSet.size == parameters.size,
+  require(parameters.map(_.id).size == parameters.size,
     "No two parameters should have the same id.")
 
   // actions to /Constraint/

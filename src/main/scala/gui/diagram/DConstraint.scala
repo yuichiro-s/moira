@@ -129,15 +129,35 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
 
   def toXML(): xml.Elem = {
     val c = constraint()
+    def vToNode(v: String) = {
+      dVariables().find(_.varName == v) match {
+        case Some(dv) => {
+          <var>
+            <name>{v}</name>
+            {c.paramMap.get(v) match {
+              case None =>
+              case Some(pp) => <pid>{pp.id}</pid>
+            }}
+            <x>{dv.tx()}</x>
+            <y>{dv.ty()}</y>
+          </var>
+        }
+        case None => throw new NoSuchElementException(
+          "Unknown variable %s in %s.".format(v, c))
+      }
+    }
+
     <constraint>
       <id>{c.id}</id>
       <rel>{c.relStr}</rel>
-      <bind>{for ((v, p) <- c.paramMap) yield <var>{v}</var><pid>{p.id}</pid>}</bind>
+      {c.vars match {
+        case None =>
+        case Some(vs) => <vars>{ for (v <- vs) yield vToNode(v) }</vars>
+      }}
       <x>{x()}</x>
       <y>{y()}</y>
     </constraint>
   }
-
 
   // initialization
   update()

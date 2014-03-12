@@ -14,7 +14,7 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
     case None => assert(paramMap == Map(),
       "/paramMap/ must be None when /relStr/ is not parsable.")
     case Some(vs) => assert(paramMap.keys.forall(vs.contains(_)),
-      "All variables in /paramMap/ must also appear in /rel/.")
+      "There is a variable in %s which doesn't appear in %s.".format(paramMap, vs))
   }
 
   // whether it's ready to be converted to a /Constraint/
@@ -136,4 +136,20 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
     }
   }
 
+}
+
+object ProtoConstraint {
+  def fromXML(source: xml.Node, pMap: Map[Int, ProtoParameter]): ProtoConstraint = {
+    val id = (source \ "id").text.toInt
+    val relStr = (source \ "rel").text
+    val paramMap = ((source \\ "var") collect {
+      case n if !(n \\ "pid").isEmpty => {
+        val nn = n \\ "name"
+        val pn = n \\ "pid"
+        nn.text -> pMap(pn.text.toInt)
+      }
+    }).toMap
+
+    ProtoConstraint(id, relStr, paramMap)
+  }
 }

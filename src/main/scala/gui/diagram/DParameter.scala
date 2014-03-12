@@ -1,14 +1,14 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{BooleanProperty, DoubleProperty, ObjectProperty}
+import scalafx.beans.property.{DoubleProperty, ObjectProperty}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
 import scalafx.scene.shape.Circle
 import scalafx.scene.Group
 import scalafx.scene.paint.Color
 
-import moira.world.ProtoParameter
+import moira.world.{ProtoParameter}
 
 class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit val diagram: Diagram) extends DObject(diagram.selectedParameters) with Draggable {
 
@@ -119,3 +119,4 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit val diagr
   // initialization
   update()
 }
+

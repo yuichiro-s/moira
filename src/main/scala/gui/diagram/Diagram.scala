@@ -36,6 +36,8 @@ class Diagram extends Scene(400, 300) {
   case class MouseInfo(lastPressedX: Double, lastPressedY: Double)
   val mouseInfo = ObjectProperty(MouseInfo(200d, 200d))
 
+  val filePath: ObjectProperty[Option[String]] = ObjectProperty(None)
+
   // Unselects objects.
   def unselect() {
     selectedParameters() = Set[DObject]()
@@ -199,7 +201,18 @@ class Diagram extends Scene(400, 300) {
   def save() {
     val fileChooser = new FileChooser()
     val f: File = fileChooser.showSaveDialog(new Stage())
-    XML.save(f.getPath(), toXML(), "UTF-8")
+    if (f != null) {
+      XML.save(f.getPath(), toXML(), "UTF-8")
+    }
+  }
+
+  def open() {
+    val fileChooser = new FileChooser()
+    val f: File = fileChooser.showOpenDialog(new Stage())
+    if (f != null) {
+      val xml = XML.loadFile(f)
+      loadXML(xml)
+    }
   }
 
   // menu bar
@@ -254,6 +267,11 @@ class Diagram extends Scene(400, 300) {
             accelerator = new KeyCodeCombination(KeyCode.S,
               KeyCombination.ShortcutDown)
             onAction = handle { save() }
+          },
+          new MenuItem("Open") {
+            accelerator = new KeyCodeCombination(KeyCode.O,
+              KeyCombination.ShortcutDown)
+            onAction = handle { open() }
           }
         )
       }
@@ -361,10 +379,74 @@ class Diagram extends Scene(400, 300) {
     }
   }
 
-  def toXML(): xml.Elem = <world>
-    { dConstraints().map(_.toXML()) }
-    { dParameters().map(_.toXML()) }
+  def toXML(): xml.Elem = {
+    <world>
+      { dConstraints().map(_.toXML()) }
+      { dParameters().map(_.toXML()) }
     </world>
+  }
+
+  def loadXML(source: xml.Elem) {
+    def getPos(node: xml.Node): (Double, Double) = {
+      val x: Double = (node \ "x" collectFirst {
+        case <x>{n}</x> => n.text.toDouble
+      }).get
+      val y: Double = (node \ "y" collectFirst {
+        case <y>{n}</y> => n.text.toDouble
+      }).get
+
+      (x, y)
+    }
+
+    try {
+      // create parameters
+      val (pps, dps) = (source \ "parameter" map { node =>
+        val pp = ProtoParameter.fromXML(node)
+        val (x, y) = getPos(node)
+        (pp, new DParameter(pp, x, y))
+      }).unzip
+      val pMap = pps.map { pp => pp.id -> pp }.toMap
+
+      dParameters() = dps.toSet
+
+      // create constraints
+      val dcs = source \ "constraint" map { node =>
+        val pc = ProtoConstraint.fromXML(node, pMap)
+        val (x, y) = getPos(node)
+
+        val dc = new DConstraint(pc, x, y)
+
+        // set positions of variables
+        dc.dVariables() foreach { dv =>
+          val (x, y) = ((node \\ "var") collectFirst {
+              case n if (n \\ "name").text == dv.varName => {
+                ((n \\ "x").text.toDouble, (n \\ "y").text.toDouble)
+              }
+            }).get
+          dv.tx() = x
+          dv.ty() = y
+        }
+
+        dc
+      }
+
+      dConstraints() = dcs.toSet
+
+      val nextParameterId = dps.maxBy(_.pId).pId + 1
+      val nextConstraintId = dcs.maxBy(_.cId).cId + 1
+
+      world() = new World(
+        dcs.toSet map { dc: DConstraint => dc.getConstraint() },
+        dps.toSet map { dp: DParameter => dp.getParameter() },
+        nextConstraintId,
+        nextParameterId
+      )
+
+    } catch {
+      case e: NumberFormatException => println(e)
+      case e: NoSuchElementException => println(e)
+    }
+  }
 
   // initial parameters
   implicit def pq(str: String): Option[PhysicalQuantity] = {
