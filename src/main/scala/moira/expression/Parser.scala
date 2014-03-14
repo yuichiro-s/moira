@@ -5,6 +5,7 @@ import moira.unit.PhysicalQuantity
 import moira.unit.SIUnit
 
 import scala.util.parsing.combinator._
+import moira.expression.function.Pow
 
 /*
  * expr ::= term { "+" term | "-" term }.
@@ -51,7 +52,11 @@ object Parser extends JavaTokenParsers {
   }).reduce(_ | _)
 
   lazy val funcall: Parser[Expr] = (ident<~"(")~repsep(expr, ",")<~")" ^^ {
-    case name~as => Funcall(name, as)
+    case name~as => {
+      name match {
+        case "pow" if as.size == 2 => Pow(as(0), as(1))
+      }
+    }
   }
 
   lazy val rel: Parser[Rel] = equality | inequality

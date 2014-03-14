@@ -9,6 +9,31 @@ import moira.expression.Value
 // Parameter whose definition can be incomplete.
 case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {
   val rel: Option[Rel] = Parser.parseRel(relStr)
+
+  lazy val (boundRel, embodiedParamMap): (Option[Rel], Map[String, Option[Parameter]]) = {
+    // partition into parameters with defined values and undefined values
+    val (defs, undefs) = paramMap.partition {
+      // allow only parameters with undefined value
+      case (_, pp) => pp.value.isDefined
+    }
+
+    // bind defined values to the /rel/
+    val a: Option[Rel] = rel.map {
+      _.bind(defs.mapValues { pp =>
+      // create bindings from already defined parameters
+        pp.value match {
+          case None => throw new IllegalStateException(
+            "/defs/ should contain only /ProtoParameter/s with defined values.")
+          case Some(pq) => pq
+        }
+      })
+    }
+
+    val b: Map[String, Option[Parameter]] = undefs.mapValues(_.toParameter)
+
+    (a, b)
+  }
+
   val vars: Option[Set[String]] = rel.map(_.vars)
   
   vars match {
@@ -30,43 +55,17 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
 
   // Checks consistency in dimensions.
   lazy val isConsistent: Boolean = {
-    def getDim(e: Expr): Option[SIDim] = {
-      e match {
-        case BinOp(op, e1, e2) => {
-          val d1 = getDim(e1)
-          val d2 = getDim(e2)
-          (d1, d2) match {
-            case (Some(dim1), Some(dim2)) => {
-              op match {
-                case BinOpType.Add | BinOpType.Sub => {
-                  if (dim1 == dim2) Some(dim1)
-                  else None   // e1 and e2 have different dimensions
-                }
-                case BinOpType.Mul => Some(dim1 * dim2)
-                case BinOpType.Div => Some(dim1 / dim2)
-              }
-            }
-            case _ => None  // either /Expr/ doesn't have a valid dimension
-          }
-        }
-        case Var(name) => paramMap.get(name) match {
-          case Some(pp) => Some(pp.dim)
-          case None => None   // /Var/ is not connected
-        }
-        case Value(pq) => Some(pq.dim)
-        // TODO: case Funcall(_, args) => {}
-      }
-    }
-
-    rel match {
+    boundRel match {
       case None => false  // relation definition cannot be parsed
       case Some(rel) => {
-        (getDim(rel.lhs), getDim(rel.rhs)) match {
-          case (Some(dim1), Some(dim2)) => {
+        val dimMap = paramMap.mapValues(_.dim)
+        (rel.lhs.dim(dimMap), rel.rhs.dim(dimMap)) match {
+          case (Left(e), _) => { println(e); false }
+          case (_, Left(e)) => { println(e); false }
+          case (Right(dim1), Right(dim2)) => {
             // It is allowed to compare 0 with any dimensional values
             dim1 == dim2 || rel.lhs == Value(PQZero) || rel.rhs == Value(PQZero)
           }
-          case _ => false
         }
       }
     }
@@ -77,25 +76,6 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
       None
     } else {
       // convert related /ProtoParameter/s to /Parameter/s
-
-      // partition into parameters with defined values and undefined values
-      val (undefs, defs) = paramMap.partition {
-        // allow only parameters with undefined value
-        case (_, pp) => !pp.value.isDefined
-      }
-
-      val embodiedParamMap: Map[String, Option[Parameter]] = undefs.mapValues(_.toParameter)
-
-      // bind defined values to the /rel/
-      assert(rel != None, "Relation definition should be able to be parsed.")
-      val boundRel: Rel = rel.get.bind(defs.mapValues { pp =>
-        // create bindings from already defined parameters
-        pp.value match {
-          case None => throw new IllegalStateException(
-            "/defs/ should contain only /ProtoParameter/s with defined values.")
-          case Some(pq) => pq
-        }
-      })
 
       // if any of the connected /ProtoParameter/s cannot be embodied,
       // it's not possible to convert it into a /ProtoConstraint/.
@@ -118,7 +98,7 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
           case (a, b) => (a.toMap, b)
         }
         // renamed /rel/
-        val renamedRel = xys.foldLeft(boundRel) {
+        val renamedRel = xys.foldLeft(boundRel.get) {
           case (r, (x, ys)) => r.unify(x, ys)
         }
 

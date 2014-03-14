@@ -472,10 +472,10 @@ class Diagram extends Scene(400, 300) {
       case _ => None
     }
   }
-  val pp1 = world().createParameter("abc", CommonDims.LENGTH, "km", "0 km", "100 km", "1 km") match {
+  val pp1 = world().createParameter("abc", CommonDims.AREA, "m2", "0 m2", "100 m2", "2 m2") match {
     case (w, pp) => { world() = w; pp }
   }
-  val pp2 = world().createParameter("def", CommonDims.LENGTH, "km", "0 km", "100 km", "1 km") match {
+  val pp2 = world().createParameter("def", CommonDims.VOLUME, "m3", "0 m3", "100 m3", "3 m3") match {
     case (w, pp) => { world() = w; pp }
   }
   dParameters() = Set(
@@ -484,7 +484,7 @@ class Diagram extends Scene(400, 300) {
   )
 
   // initial constraints
-  val pc1 = world().createConstraint("$x+$y=1km", Map()) match {
+  val pc1 = world().createConstraint("pow($x,3)=pow($y,2)", Map()) match {
     case (w, pc) => { world() = w; pc }
   }
   dConstraints() = Set(

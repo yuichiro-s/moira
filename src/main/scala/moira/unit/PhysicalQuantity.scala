@@ -44,7 +44,13 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
   override def toString = {
     CommonUnits.unitToName.get(unit) match {
       case None => super.toString
-      case Some(str) => "%.1f %s".format(value, str)
+      case Some(str) => {
+        if (dim == CommonDims.NODIM) {
+          "%.2f".format(value * unit.factor)
+        } else {
+          "%.2f %s".format(value, str)
+        }
+      }
     }
   }
 }

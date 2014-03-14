@@ -12,6 +12,10 @@ trait Expr {
   val vars: Set[String]
   val simplified: Expr
 
+  // Calculates the dimension of the expression.
+  // In case of dimension inconsistency, reports error.
+  def dim(varDims: Map[String, SIDim]): Either[String, SIDim]
+
   // Renames all /Var/s with any of the names in /ys/ to /x/.
   def unify(x: String, ys: Seq[String]): Expr
 
