@@ -5,6 +5,8 @@ import moira.unit.{SIDim,SIUnit,PhysicalQuantity}
 import moira.unit.CommonUnits
 import scala.xml.Node
 
+class InsufficientParameterConfigException(pp: ProtoParameter, msg: String) extends RuntimeException(s"${pp.name}: $msg")
+
 // Parameter whose definition can be incomplete.
 case class ProtoParameter(
   id: Int = -1,
@@ -23,28 +25,31 @@ case class ProtoParameter(
   require(upper match { case Some(pq) => pq.dim == dim; case None => true })
   require(value match { case Some(pq) => pq.dim == dim; case None => true })
 
-  // whether it's ready to be converted to a /Parameter/
-  lazy val isWellDefined: Boolean = {
-    (lower, upper) match {
-      case (Some(pqL), Some(pqU)) => {
-        // check whether upper >= lower
-        (pqU - pqL).value >= 0
-      }
-      case _ => false   // Either lower or upper is not defined.
-    }
-  }
-
   // make parameter
-  lazy val toParameter: Option[Parameter] = {
+  lazy val toParameter: Parameter = {
     (lower, upper) match {
-      case (Some(pqL), Some(pqU)) if isWellDefined => Some(Parameter(id, dim, pqL, pqU))
-      case _ => None
+      case (None, _) => {
+        throw new InsufficientParameterConfigException(this,
+          s"Lower bound is not defined.")
+      }
+      case (_, None) => {
+        throw new InsufficientParameterConfigException(this,
+          s"Upper bound is not defined.")
+      }
+      case (Some(pqL), Some(pqU)) => {
+        if ((pqU - pqL).value >= 0) {
+          Parameter(id, dim, pqL, pqU)
+        } else {
+          throw new InsufficientParameterConfigException(this,
+            s"Upper bound ${pqU} is smaller than lower bound ${pqL}.")
+        }
+      }
     }
   }
 }
 
-
 object ProtoParameter {
+
   def fromXML(source: xml.Node): ProtoParameter = {
     val id: Int = (source \ "id").text.toInt
     val name: String = (source \ "name").text

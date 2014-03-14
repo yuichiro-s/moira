@@ -156,15 +156,7 @@ class Diagram extends Scene(400, 300) {
 
     val pcs: Set[ProtoConstraint] = dcs.map(_.getConstraint())
 
-    val cs: Set[Constraint] = pcs.map { pc =>
-      pc.toConstraint match {
-        case Some(c) => c
-        case None => {
-          println("%s is inconsistent.".format(pc))
-          return
-        }
-      }
-    }
+    val cs: Set[Constraint] = pcs.map(_.toConstraint)
 
     ConstraintSolver.solve(cs) match {
       case None => {
@@ -472,19 +464,27 @@ class Diagram extends Scene(400, 300) {
       case _ => None
     }
   }
-  val pp1 = world().createParameter("abc", CommonDims.AREA, "m2", "0 m2", "100 m2", "2 m2") match {
+  val pp1 = world().createParameter("ans", CommonDims.AREA, "m2", "0 m2", "100 m2", "") match {
     case (w, pp) => { world() = w; pp }
   }
-  val pp2 = world().createParameter("def", CommonDims.VOLUME, "m3", "0 m3", "100 m3", "3 m3") match {
+  val pp2 = world().createParameter("a", CommonDims.LENGTH, "m", "0 m", "100 m", "3 m") match {
+    case (w, pp) => { world() = w; pp }
+  }
+  val pp3 = world().createParameter("b1", CommonDims.LENGTH, "m", "0 m", "100 m", "3 m") match {
+    case (w, pp) => { world() = w; pp }
+  }
+  val pp4 = world().createParameter("b2", CommonDims.LENGTH, "m", "0 m", "100 m", "3 m") match {
     case (w, pp) => { world() = w; pp }
   }
   dParameters() = Set(
     new DParameter(pp1, 100, 100),
-    new DParameter(pp2, 200, 150)
+    new DParameter(pp2, 100, 150),
+    new DParameter(pp3, 300, 100),
+    new DParameter(pp4, 300, 150)
   )
 
   // initial constraints
-  val pc1 = world().createConstraint("pow($x,3)=pow($y,2)", Map()) match {
+  val pc1 = world().createConstraint("$ans=int($a0+$b,$b,$b1,$b2)", Map()) match {
     case (w, pc) => { world() = w; pc }
   }
   dConstraints() = Set(

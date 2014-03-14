@@ -1,7 +1,7 @@
 package moira.expression.function
 
-import moira.expression.{Value,Expr,Funcall}
-import moira.unit.{SIDim,PhysicalQuantity,CommonDims}
+import moira.expression.{DimensionInconsistencyException, Value, Expr, Funcall}
+import moira.unit.{SIDim,CommonDims}
 
 case class Pow(e: Expr, ne: Expr) extends Funcall {
 
@@ -27,19 +27,15 @@ case class Pow(e: Expr, ne: Expr) extends Funcall {
     val de = e.dim(varDims)
     val dne = ne.dim(varDims)
 
-    (de, dne) match {
-      case (Left(e), _) => Left(e)
-      case (_, Left(e)) => Left(e)
-      case (Right(de), Right(dne)) => {
-        ne.value match {
-          case None => Left(s"There is an unbound variable in ${ne}.")
-          case Some(pq) => {
-            if (pq.dim == CommonDims.NODIM) {
-              Right(de ** pq.normalized.value.toInt)
-            } else {
-              Left(s"Exponent ${ne} is not dimensionless.")
-            }
-          }
+    ne.value match {
+      case None => throw new DimensionInconsistencyException(this,
+        s"Unbound variable in ${ne}.")
+      case Some(pq) => {
+        if (pq.dim == CommonDims.NODIM) {
+          de ** pq.normalized.value.toInt
+        } else {
+          throw new DimensionInconsistencyException(this,
+            s"Exponent ${ne} is not dimensionless.")
         }
       }
     }

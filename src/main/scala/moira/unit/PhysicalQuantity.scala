@@ -6,14 +6,16 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
   val isZero = value == 0
 
   def +(pq: PhysicalQuantity): PhysicalQuantity = {
-    require(isZero || pq.isZero || dim == pq.dim)
+    require(isZero || pq.isZero || dim == pq.dim,
+      s"Addition of incompatible quantities $this and $pq.")
     val pq1 = normalized
     val pq2 = pq.normalized
     PhysicalQuantity(pq1.value + pq2.value, pq1.unit)
   }
 
   def -(pq: PhysicalQuantity): PhysicalQuantity = {
-    require(isZero || pq.isZero || dim == pq.dim)
+    require(isZero || pq.isZero || dim == pq.dim,
+      s"Subtraction of incompatible quantities $this and $pq.")
     val pq1 = normalized
     val pq2 = pq.normalized
     PhysicalQuantity(pq1.value - pq2.value, pq1.unit)
@@ -24,6 +26,12 @@ case class PhysicalQuantity(value: Double, unit: SIUnit = SIUnit()) {
 
   def /(pq: PhysicalQuantity): PhysicalQuantity =
     PhysicalQuantity(value / pq.value, unit / pq.unit)
+
+  def *(d: Double): PhysicalQuantity =
+    PhysicalQuantity(value * d, unit)
+
+  def /(d: Double): PhysicalQuantity =
+    PhysicalQuantity(value / d, unit)
 
   def **(n: Int): PhysicalQuantity =
     PhysicalQuantity(Math.pow(value, n), unit ** n)

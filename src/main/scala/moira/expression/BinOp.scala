@@ -42,24 +42,18 @@ case class BinOp(op: BinOpType, e1: Expr, e2: Expr) extends Expr {
   def dim(varDims: Map[String, SIDim]) = {
     val d1 = e1.dim(varDims)
     val d2 = e2.dim(varDims)
-    (d1, d2) match {
-      case (Left(e), _) => Left(e)
-      case (_, Left(e)) => Left(e)
-      case (Right(d1), Right(d2)) => {
-        op match {
-          case BinOpType.Add | BinOpType.Sub => {
-            if (d1 == d2) {
-              Right(d1)
-            } else {
-              Left("Dimensions of %s and %s are incompatible.".format(e1, e2))
-            }
-          }
-          case BinOpType.Mul =>  Right(d1 * d2)
-          case BinOpType.Div =>  Right(d1 / d2)
+
+    op match {
+      case BinOpType.Add | BinOpType.Sub => {
+        if (d1 == d2) {
+          d1
+        } else {
+          throw new DimensionInconsistencyException(this,
+            s"Incompatible dimensions: $d1 and $d2")
         }
-
       }
+      case BinOpType.Mul => d1 * d2
+      case BinOpType.Div => d1 / d2
     }
-
   }
 }

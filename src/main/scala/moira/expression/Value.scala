@@ -9,7 +9,7 @@ case class Value(pq: PhysicalQuantity) extends Expr {
   lazy val vars = Set[String]()
   lazy val simplified = this
 
-  def dim(varDims: Map[String, SIDim]) = Right(pq.dim)
+  def dim(varDims: Map[String, SIDim]) = pq.dim
 
   def unify(x: String, ys: Seq[String]) = this
 }

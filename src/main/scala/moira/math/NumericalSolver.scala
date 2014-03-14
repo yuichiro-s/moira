@@ -5,13 +5,19 @@ object NumericalSolver {
   type V = Seq[Double]
   type M = Seq[Seq[Double]]
 
+  // Checks if difference is almost 0
   def equal(a: Double, b: Double, eps: Double=1e-5): Boolean = {
-    // difference is almost 0
-    Math.abs(a-b) <= Math.max(Math.abs(a), Math.abs(b)) * eps
+    // When either value is exactly 0, it's impossible to tell
+    // whether the other one is close enough to 0, so just compare it with eps.
+    if (a == 0) { Math.abs(b) < eps }
+    else if (b == 0) { Math.abs(a) < eps }
+    else Math.abs(a-b) <= Math.max(Math.abs(a), Math.abs(b)) * eps
   }
 
+  // Checks if difference is larger than 0
   def greater(a: Double, b: Double, eps: Double=1e-5): Boolean = {
-    // difference is larger than 0
+    if (a == 0) { eps > b }
+    else if (b == 0) { a > -eps }
     a - b >= -Math.max(Math.abs(a), Math.abs(b)) * eps
   }
 

@@ -5,7 +5,7 @@ import moira.unit.PhysicalQuantity
 import moira.unit.SIUnit
 
 import scala.util.parsing.combinator._
-import moira.expression.function.Pow
+import moira.expression.function.{Integrate, Pow}
 
 /*
  * expr ::= term { "+" term | "-" term }.
@@ -45,9 +45,9 @@ object Parser extends JavaTokenParsers {
   | "("~>expr<~")"
   )
 
-  lazy val unit: Parser[SIUnit] = ((CommonUnits.nameToUnit.toList.sortBy {
+  lazy val unit: Parser[SIUnit] = (CommonUnits.nameToUnit.toList.sortBy {
     kv => -kv._1.length // sort by length in descending order to avoid ambiguity
-  }).map {
+  } map {
     kv => { kv._1 ^^ (_ => kv._2) }
   }).reduce(_ | _)
 
@@ -55,6 +55,11 @@ object Parser extends JavaTokenParsers {
     case name~as => {
       name match {
         case "pow" if as.size == 2 => Pow(as(0), as(1))
+        case "int" if as.size == 4 => {
+          as(1) match {
+            case v@Var(_) => Integrate(as(0), v, as(2), as(3))
+          }
+        }
       }
     }
   }

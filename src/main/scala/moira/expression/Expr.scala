@@ -4,6 +4,8 @@ import moira.unit.SIDim
 import moira.unit.SIUnit
 import moira.unit.PhysicalQuantity
 
+class DimensionInconsistencyException(e: Expr, msg: String) extends RuntimeException(s"$e: $msg")
+
 // Expression
 trait Expr {
   type Bindings = Map[String, PhysicalQuantity]
@@ -14,7 +16,7 @@ trait Expr {
 
   // Calculates the dimension of the expression.
   // In case of dimension inconsistency, reports error.
-  def dim(varDims: Map[String, SIDim]): Either[String, SIDim]
+  def dim(varDims: Map[String, SIDim]): SIDim
 
   // Renames all /Var/s with any of the names in /ys/ to /x/.
   def unify(x: String, ys: Seq[String]): Expr

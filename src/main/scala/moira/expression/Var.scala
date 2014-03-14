@@ -1,6 +1,5 @@
 package moira.expression
 
-import moira.constraint.solver.ConstraintSolver.Bindings
 import moira.unit.SIDim
 
 // variable
@@ -17,8 +16,9 @@ case class Var(name: String) extends Expr {
 
   def dim(varDims: Map[String, SIDim]) = {
     varDims.get(name) match {
-      case None => Left("Dimension of variable '%s' is unknown.".format(name))
-      case Some(d) => Right(d)
+      case None => throw new DimensionInconsistencyException(this,
+        s"Dimension is unknown.")
+      case Some(d) => d
     }
   }
 
