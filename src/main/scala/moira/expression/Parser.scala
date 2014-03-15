@@ -5,7 +5,7 @@ import moira.unit.PhysicalQuantity
 import moira.unit.SIUnit
 
 import scala.util.parsing.combinator._
-import moira.expression.function.{Sin, Integrate, Pow}
+import moira.expression.function.{Integrate,Pow,UnaryMathFuncall}
 
 /*
  * expr ::= term { "+" term | "-" term }.
@@ -53,6 +53,8 @@ object Parser extends JavaTokenParsers {
 
   lazy val funcall: Parser[Expr] = (ident<~"(")~repsep(expr, ",")<~")" ^^ {
     case name~as => {
+      import moira.expression.function.UnaryMathFuncType._
+
       name match {
         case "pow" if as.size == 2 => Pow(as(0), as(1))
         case "int" if as.size == 4 => {
@@ -60,7 +62,17 @@ object Parser extends JavaTokenParsers {
             case v@Var(_) => Integrate(as(0), v, as(2), as(3))
           }
         }
-        case "sin" if as.size == 1 => Sin(as(0))
+        case "sin"   if as.size == 1 => UnaryMathFuncall(Sin, as(0))
+        case "cos"   if as.size == 1 => UnaryMathFuncall(Cos, as(0))
+        case "tan"   if as.size == 1 => UnaryMathFuncall(Tan, as(0))
+        case "sinh"  if as.size == 1 => UnaryMathFuncall(Sinh, as(0))
+        case "cosh"  if as.size == 1 => UnaryMathFuncall(Cosh, as(0))
+        case "tanh"  if as.size == 1 => UnaryMathFuncall(Tanh, as(0))
+        case "exp"   if as.size == 1 => UnaryMathFuncall(Exp, as(0))
+        case "log"   if as.size == 1 => UnaryMathFuncall(Log, as(0))
+        case "abs"   if as.size == 1 => UnaryMathFuncall(Abs, as(0))
+        case "floor" if as.size == 1 => UnaryMathFuncall(Floor, as(0))
+        case "ceil"  if as.size == 1 => UnaryMathFuncall(Ceil, as(0))
       }
     }
   }

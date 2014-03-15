@@ -22,7 +22,7 @@ trait Expr {
   def unify(x: String, ys: Seq[String]): Expr
 
   // Evaluates the /Expr/.
-  // If there is an unbound variable, returns None.
+  // If there is an unbound variable or it cannot be calculated, returns None.
   lazy val value: Option[PhysicalQuantity] = {
     simplified match {
       case Value(pq) => Some(pq)

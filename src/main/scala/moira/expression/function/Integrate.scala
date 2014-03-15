@@ -17,6 +17,32 @@ case class Integrate(expr: Expr, varExpr: Var, lowerExpr: Expr, upperExpr: Expr)
 
   lazy val vars = (expr.vars ++ lowerExpr.vars ++ upperExpr.vars) - varExpr.name
 
+  // integration by Simpson's rule
+  def simpson(e: Expr, a: PhysicalQuantity, b: PhysicalQuantity): Option[PhysicalQuantity] = {
+    val N: Int = 100   // number of intervals
+    val h: PhysicalQuantity = (b - a) / N
+
+    // coefficients and points
+    val ps: Seq[(Int, PhysicalQuantity)] = (1, a) +: ((1 to N-1) map { n: Int =>
+      (if (n % 2 == 0) 2 else 4, a + h * n)
+    }) :+ (1, b)
+
+    val ans = (ps map {
+      case (k, x) => {
+        val m = Map(varExpr.name -> x)
+        e.bind(m).value match {
+          case Some(pq) => pq * k
+          case None => {
+            // cannot be evaluated at some point
+            return None
+          }
+        }
+      }
+    } reduce (_ + _)) * h / 3
+
+    Some(ans)
+  }
+
   // Integrates using Simpson's rule.
   lazy val simplified: Expr = {
     val sL = lowerExpr.simplified
@@ -31,19 +57,10 @@ case class Integrate(expr: Expr, varExpr: Var, lowerExpr: Expr, upperExpr: Expr)
         if (restVars.nonEmpty) {
           Integrate(sE, varExpr, Value(a), Value(b))
         } else {
-          val N: Int = 100   // number of intervals
-          val h: PhysicalQuantity = (b - a) / N
-          val ps: Seq[(Int, PhysicalQuantity)] = (1, a) +: ((1 to N-1) map { n: Int =>
-            (if (n % 2 == 0) 2 else 4, a + h * n)
-          }) :+ (1, b)
-          val ans = (ps map {
-            case (k, x) => {
-              val m = Map(varExpr.name -> x)
-              sE.bind(m).value.get * k
-            }
-          } reduce (_ + _)) * h / 3
-
-          Value(ans)
+          simpson(sE, a, b) match {
+            case Some(ans) => Value(ans)
+            case None => Integrate(sE, varExpr, Value(a), Value(b))
+          }
         }
       }
       case _ => Integrate(sE, varExpr, sL, sU)
