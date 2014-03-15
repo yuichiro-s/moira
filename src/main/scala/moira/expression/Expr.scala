@@ -32,15 +32,15 @@ trait Expr {
 
   // Converts to a unary function.
   // Only applicable to a unary expression.
-  def toUnaryFunc(v: String, dim: SIDim): Double => Double = {
+  def toUnaryFunc(v: String, dim: SIDim): Double => Option[Double] = {
     require(vars.size == 1)
     require(v == vars.toSeq.head)
 
     val unit = SIUnit(1.0, dim) // unit assumed for the argument value
     x: Double => {
       val bs = Map(v -> PhysicalQuantity(x, unit))
-      val ans = bind(bs).value.get // assumes that there are no unbound variables
-      ans.normalized.value
+      val ans: Option[PhysicalQuantity] = bind(bs).value // evaluate the expression
+      ans.map(_.normalized.value)
     }
   }
 
@@ -48,7 +48,7 @@ trait Expr {
   // vs: Sequence of pairs of variable name and dimension.
   //     None indicates that the variable at the position doesn't appear
   //     in this equation.
-  def toFunc(vs: Seq[Option[(String, SIDim)]]): Seq[Double] => Double = {
+  def toFunc(vs: Seq[Option[(String, SIDim)]]): Seq[Double] => Option[Double] = {
     // look at toUnaryFunc
     val units: Seq[Option[SIUnit]] = vs map {
       case Some((_, dim)) => Some(SIUnit(1.0, dim))
@@ -62,8 +62,8 @@ trait Expr {
       val bs = vs.zip(pqs) collect {
         case (Some((name, _)), Some(pq)) => name -> pq
       }
-      val ans = bind(bs.toMap).value.get // assumes that there are no unbound variables
-      ans.normalized.value
+      val ans: Option[PhysicalQuantity] = bind(bs.toMap).value // evaluate the expression
+      ans.map(_.normalized.value)
     }
   }
 }

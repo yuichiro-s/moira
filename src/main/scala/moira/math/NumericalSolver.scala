@@ -21,29 +21,54 @@ object NumericalSolver {
     a - b >= -Math.max(Math.abs(a), Math.abs(b)) * eps
   }
 
-  def diff(f: Double => Double, x: Double, h0: Double, eps: Double): Option[Double] = {
-    def easydiff(h: Double) = (f(x+h) - f(x)) / h
-    def elimerror(n: Long, s: Stream[Double]): Stream[Double] = {
+  def diff(f: Double => Option[Double], x: Double, h0: Double, eps: Double): Option[Double] = {
+    def easydiff(h: Double): Option[Double] = {
+      (f(x+h), f(x)) match {
+        case (Some(v2), Some(v1)) => Some((v2 - v1) / h)
+        case _ => None
+      }
+    }
+    def elimerror(n: Long, s: Stream[Option[Double]]): Stream[Option[Double]] = {
       val a = s.head
       val b = s.tail.head
-      val res = (b * (1 << n) - a) / ((1 << n) - 1)
-      Stream.cons(res, elimerror(n, s.tail))
+      (a, b) match {
+        case (Some(a_), Some(b_)) => {
+          val res = (b_ * (1 << n) - a_) / ((1 << n) - 1)
+          Stream.cons(Some(res), elimerror(n, s.tail))
+        }
+        case _ => {
+          // invalid steram
+          Stream.continually(None)
+        }
+      }
     }
-    def order(s: Stream[Double]) = {
+    def order(s: Stream[Option[Double]]): Option[Long] = {
       val a = s.head
       val b = s.tail.head
       val c = s.tail.tail.head
-      Math.round(Math.log((a-c)/(b-c)-1) / Math.log(2))
+      (a, b, c) match {
+        case (Some(a_), Some(b_), Some(c_)) => {
+          Some(Math.round(Math.log((a_ - c_)/(b_ - c_)-1) / Math.log(2)))
+        }
+        case _ => None
+      }
     }
-    def improve(s: Stream[Double]) = elimerror(order(s), s) 
-    def sup(s: Stream[Double]): Stream[Double] =
+    def improve(s: Stream[Option[Double]]) = order(s) match {
+      case Some(n) => elimerror(n, s)
+      case None => {
+        // invalid stream
+        Stream.continually(None)
+      }
+    }
+
+    def sup(s: Stream[Option[Double]]): Stream[Option[Double]] =
       Stream.iterate(s)(improve).map { x => x.tail.head }
 
     val differentiate = Stream.iterate(h0)(x => x/2).map(easydiff)
 
-    relative(sup(differentiate).map(Some(_)), eps) match {
+    relative(sup(differentiate), eps) match {
       case Some(d) => Some(d)
-      case None => relative(differentiate.map(Some(_)), eps)  // try without using sup
+      case None => relative(differentiate, eps)  // try without using sup
     }
   }
 
@@ -81,7 +106,7 @@ object NumericalSolver {
 
   // Calculates jacobian of f[nxm] at x0[m].
   // Returns None if any one of the elements is None.
-  def jacobian(f: Seq[V => Double], x0: V, eps: Double): Option[M] = {
+  def jacobian(f: Seq[V => Option[Double]], x0: V, eps: Double): Option[M] = {
     Some(f map { func =>
       x0.zipWithIndex map { case (xi, i) =>
         val fi = { x: Double => func(x0.updated(i, x))}
@@ -95,13 +120,13 @@ object NumericalSolver {
 
   // Solves the equation f(x) = 0, with the initial guess x = x0.
   // Returns None if answer is not found.
-  def newtonsSolver(f: Double => Double, x0: Double, eps: Double=1e-5, n: Int=100): Option[Double] = {
+  def newtonsSolver(f: Double => Option[Double], x0: Double, eps: Double=1e-5, n: Int=100): Option[Double] = {
     def updater(x: Option[Double]): Option[Double] = {
       x match {
         case Some(x_) => {
-          diff(f, x_, eps, eps) match {
-            case Some(d_) => Some(x_ - f(x_) / d_)
-            case None => None
+          (diff(f, x_, eps, eps), f(x_)) match {
+            case (Some(d), Some(v)) => Some(x_ - v / d)
+            case _ => None
           }
         }
         case None => None
@@ -111,7 +136,7 @@ object NumericalSolver {
   }
 
   // Solves a system of n equations of n variables.
-  def multiNewtonsSolver(f: Seq[V => Double], x0: V, eps: Double=1e-5, n: Int=100): Option[V] = {
+  def multiNewtonsSolver(f: Seq[V => Option[Double]], x0: V, eps: Double=1e-5, n: Int=100): Option[V] = {
 
     def updater(x: Option[V]): Option[V] = {
       x match {
@@ -120,7 +145,15 @@ object NumericalSolver {
           jacobian(f, x_, eps) match {
             case None => None
             case Some(j) => {
-              val fx = f.map(_(x_))
+              val fx: Seq[Double] = f map { func =>
+                func(x_) match {
+                  case Some(v) => v
+                  case None => {
+                    // /func/ is not evaluable at /x_/
+                    return None
+                  }
+                }
+              }
               Matrix(j).linSolve(fx) match {
                 case None => None
                 case Some(r) => Some(x_.zip(r) map { case (xi, ri) => xi - ri })

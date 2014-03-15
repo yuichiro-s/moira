@@ -6,16 +6,16 @@ import scalafx.scene.{Scene, Group}
 import scalafx.scene.layout.BorderPane
 import scalafx.scene.input.{KeyCode,KeyEvent,KeyCombination,KeyCodeCombination,MouseEvent}
 import scalafx.scene.control.{MenuItem,MenuBar,Menu}
+import scalafx.stage.{FileChooser,Stage}
+
+import java.io.File
+import scala.xml.XML
 
 import moira.world.{ProtoParameter,ProtoConstraint,World}
 import moira.gui.InfoStage
-import moira.unit.{PhysicalQuantity,SIDim,CommonDims}
+import moira.unit.{PhysicalQuantity,SIDim}
 import moira.constraint.solver.ConstraintSolver
 import moira.constraint.Constraint
-import moira.expression.{Value,Parser}
-import scalafx.stage.{FileChooser,Stage}
-import java.io.File
-import scala.xml.XML
 
 class Diagram extends Scene(400, 300) {
   implicit val diagram: Diagram = this
@@ -156,31 +156,35 @@ class Diagram extends Scene(400, 300) {
 
     val pcs: Set[ProtoConstraint] = dcs.map(_.getConstraint())
 
-    val cs: Set[Constraint] = pcs.map(_.toConstraint)
+    try {
+      val cs: Set[Constraint] = pcs.map(_.toConstraint)
 
-    ConstraintSolver.solve(cs) match {
-      case None => {
-        println("Failed to solve the constraints.")
-      }
-      case Some(bs) => {
-        var tmpWorld = world()
-        bs foreach {
-          case (p, pq) => {
-            tmpWorld.getParameterById(p.id) match {
-              case None => {
-                throw new IllegalStateException(
-                  "Parameter(id=%d) is not found in %s.".format(p.id, world()))
-              }
-              case Some(pp) => {
-                // bind calculated value to the parameter
-                tmpWorld = tmpWorld.updateParameter(
-                  pp.id, pp.name, pp.dim, pp.displayUnit, pp.lower, pp.upper, Some(pq))._1
+      ConstraintSolver.solve(cs)(Some(System.out)) match {
+        case None => {
+          println("Failed to solve the constraints.")
+        }
+        case Some(bs) => {
+          var tmpWorld = world()
+          bs foreach {
+            case (p, pq) => {
+              tmpWorld.getParameterById(p.id) match {
+                case None => {
+                  throw new IllegalStateException(
+                    "Parameter(id=%d) is not found in %s.".format(p.id, world()))
+                }
+                case Some(pp) => {
+                  // bind calculated value to the parameter
+                  tmpWorld = tmpWorld.updateParameter(
+                    pp.id, pp.name, pp.dim, pp.displayUnit, pp.lower, pp.upper, Some(pq))._1
+                }
               }
             }
           }
+          world() = tmpWorld
         }
-        world() = tmpWorld
       }
+    } catch {
+      case e: Exception => println(e)
     }
   }
 
@@ -222,7 +226,23 @@ class Diagram extends Scene(400, 300) {
   // menu bar
   val menuBar = new MenuBar {
     menus = Seq(
-      new Menu("Operations") {
+
+      new Menu("File") {
+        items = Seq(
+          new MenuItem("Save") {
+            accelerator = new KeyCodeCombination(KeyCode.S,
+              KeyCombination.ShortcutDown)
+            onAction = handle { save() }
+          },
+          new MenuItem("Open") {
+            accelerator = new KeyCodeCombination(KeyCode.O,
+              KeyCombination.ShortcutDown)
+            onAction = handle { open() }
+          }
+        )
+      },
+
+      new Menu("Diagram") {
         items = Seq(
           new MenuItem("New Parameter") {
             accelerator = new KeyCodeCombination(KeyCode.P,
@@ -257,11 +277,6 @@ class Diagram extends Scene(400, 300) {
               }
             }
           },
-          new MenuItem("Calculate") {
-            accelerator = new KeyCodeCombination(KeyCode.K,
-              KeyCombination.ShortcutDown)
-            onAction = handle { calculate() }
-          },
           new MenuItem("Unset Variables") {
             accelerator = new KeyCodeCombination(KeyCode.D,
               KeyCombination.ShortcutDown)
@@ -272,15 +287,10 @@ class Diagram extends Scene(400, 300) {
               KeyCombination.ShortcutDown)
             onAction = handle { selectAll() }
           },
-          new MenuItem("Save") {
-            accelerator = new KeyCodeCombination(KeyCode.S,
+          new MenuItem("Calculate") {
+            accelerator = new KeyCodeCombination(KeyCode.K,
               KeyCombination.ShortcutDown)
-            onAction = handle { save() }
-          },
-          new MenuItem("Open") {
-            accelerator = new KeyCodeCombination(KeyCode.O,
-              KeyCombination.ShortcutDown)
-            onAction = handle { open() }
+            onAction = handle { calculate() }
           }
         )
       }
@@ -456,38 +466,4 @@ class Diagram extends Scene(400, 300) {
       case e: NoSuchElementException => println(e)
     }
   }
-
-  // initial parameters
-  implicit def pq(str: String): Option[PhysicalQuantity] = {
-    Parser.parseExpr(str) match {
-      case Some(Value(pq)) => Some(pq)
-      case _ => None
-    }
-  }
-  val pp1 = world().createParameter("ans", CommonDims.AREA, "m2", "0 m2", "100 m2", "") match {
-    case (w, pp) => { world() = w; pp }
-  }
-  val pp2 = world().createParameter("a", CommonDims.LENGTH, "m", "0 m", "100 m", "3 m") match {
-    case (w, pp) => { world() = w; pp }
-  }
-  val pp3 = world().createParameter("b1", CommonDims.LENGTH, "m", "0 m", "100 m", "3 m") match {
-    case (w, pp) => { world() = w; pp }
-  }
-  val pp4 = world().createParameter("b2", CommonDims.LENGTH, "m", "0 m", "100 m", "3 m") match {
-    case (w, pp) => { world() = w; pp }
-  }
-  dParameters() = Set(
-    new DParameter(pp1, 100, 100),
-    new DParameter(pp2, 100, 150),
-    new DParameter(pp3, 300, 100),
-    new DParameter(pp4, 300, 150)
-  )
-
-  // initial constraints
-  val pc1 = world().createConstraint("$ans=int($a0+$b,$b,$b1,$b2)", Map()) match {
-    case (w, pc) => { world() = w; pc }
-  }
-  dConstraints() = Set(
-    new DConstraint(pc1, 100d, 200d)
-  )
 }

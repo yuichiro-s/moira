@@ -1,5 +1,7 @@
 package moira.constraint.solver
 
+import java.io.{PrintStream, PrintWriter}
+
 import moira.constraint.Parameter
 import moira.constraint.Constraint
 import moira.unit.SIDim
@@ -11,70 +13,125 @@ object ConstraintSolver {
   type Bindings = Map[Parameter, PhysicalQuantity]
   type BindingCandidates = Seq[Bindings]
 
-  type Strategy = Set[Constraint] => BindingCandidates
+  // pair of (strategy name, strategy function)
+  type Strategy = (String, Set[Constraint] => BindingCandidates)
 
   val eps = 1e-5
   val strategies: Seq[Strategy] = List(
-    solveUnaryEquality,
-    solveBinaryEqualities,
-    solveNaryEqualities(3),
-    bindMostConstrainedVariable(5)
+    ("SolveUnaryEquality", solveUnaryEquality),
+    ("SolveBinaryEqualities", solveBinaryEqualities),
+    ("SolveNaryEqualities(3)", solveNaryEqualities(3)),
+    ("BindMostConstrainedVariable(5)", bindMostConstrainedVariable(5))
   ) // TODO: change strategies based on the number of constraints
 
-  // generate one possible value of the parameter according to its lower and upper
-  def genValue(param: Parameter): PhysicalQuantity = {
-    val u = param.upper.normalized
-    val l = param.lower.normalized
-    val v = (u.value - l.value) * scala.util.Random.nextDouble() + l.value
-    PhysicalQuantity(v, u.unit)
+  // Uniformly generates /n/ possible values of the parameter according to its lower and upper.
+  def genValue(param: Parameter, n: Int = 1): Seq[PhysicalQuantity] = {
+    require(n >= 1, s"non-positive integer: $n")
+
+    val u = param.upper.normalized.value
+    val l = param.lower.normalized.value
+
+    val h = (u - l) / n
+
+    val unit = param.lower.normalized.unit
+
+    Seq.iterate(l, n)(_ + h) map { li =>
+      val v = h * scala.util.Random.nextDouble() + li
+      PhysicalQuantity(v, unit)
+    }
   }
 
-  // Checks if all values are inside the range of allowed values of the parameters
-  def checkRange(bs: Bindings, eps: Double=1e-5): Boolean = {
-    bs forall {
+  // Finds a parameter with a value out of its range.
+  def findOutOfRange(bs: Bindings, eps: Double=1e-5): Option[(Parameter, PhysicalQuantity)] = {
+    bs.find {
       case (param, pq) => {
         val l: Double = param.lower.normalized.value
         val p: Double = pq.normalized.value
         val u: Double = param.upper.normalized.value
-        NumericalSolver.greater(u, p, eps) && NumericalSolver.greater(p, l, eps)
+        !NumericalSolver.greater(u, p, eps) || !NumericalSolver.greater(p, l, eps)
       }
     }
   }
 
-  def solve(cs: Set[Constraint]): Option[Bindings] = {
+  def solve(cs: Set[Constraint], depth: Int = 0)(implicit out: Option[PrintStream] = None): Option[Bindings] = {
+    def report(str: String) = out match {
+      case Some(out) => {
+        val indent = "  " * depth
+        out.println(indent + str)
+      }
+      case _ =>
+    }
+
+    report("Solving constraints below.")
+    cs.zipWithIndex foreach {
+      case (c, i) => report(s"  [$i] $c")
+    }
+
     // check if all constant constraints are satisfied
     val (constants, restCs) = cs.partition(_.isConstant)
-    if (constants.exists(_.satisfied(eps) != Some(true))) {
-      // There's an unsatisfied constant constraint.
-      return None
+    constants foreach { c =>
+      if (c.satisfied(eps) != Some(true)) {
+        // constraint is not satisfied
+        report(s"Constant constraint $c is not satisfied.")
+        return None
+      }
+    }
+    if (constants.nonEmpty) {
+      report(s"All constant constraints are satisfied.")
     }
 
     if (restCs.isEmpty) {
-      // successfully solved
+      report("No more constraints to solve.")
+      report("Successfully solved.")
+
       Some(Map.empty)
     } else {
-      // use iterator so that all strategies don't get used at once
-      strategies.iterator.map(_(restCs)) foreach { bss =>
-        bss foreach { bs0 =>
-          if (checkRange(bs0)) {
-            // if all binding values are within ranges
-            val newCs = restCs.map(_.bind(bs0))
-            solve(newCs) match {  // solve remaining constraints
-              case None => {
-                // impossible to solve with the current bindings
-                // try with next candidate
-              }
-              case Some(bs) => {
-                // remaining constraints are solved
-                return Some(bs0 ++ bs)
+      strategies foreach {
+        case (name, st) => {
+          report(s"Applying strategy ${name}.")
+          val bss: BindingCandidates = st(restCs)
+
+          if (bss.nonEmpty) {
+            report(s"Candidates are")
+            bss.zipWithIndex foreach {
+              case (bs, i) => report(s"  [$i] $bs")
+            }
+
+            bss foreach { bs0: Bindings =>
+              report(s"Inspecting candidate $bs0.")
+
+              findOutOfRange(bs0) match {
+                case None => {
+                  report(s"All values are within ranges.")
+                  report(s"Solving the rest of constraints.")
+
+                  val newCs = restCs.map(_.bind(bs0))
+                  solve(newCs, depth+1) match {  // solve remaining constraints
+                    case None => {
+                      report(s"Couldn't solve the rest of constraints with $bs0.")
+                    }
+                    case Some(bs) => {
+                      // remaining constraints are solved
+                      val sol = bs0 ++ bs
+                      report(s"Solution is $sol.")
+                      return Some(sol)
+                    }
+                  }
+                }
+                case Some((param, pq)) => {
+                  report(s"$pq is out of range of $param.")
+                }
               }
             }
+
+            report(s"All candidates have been tried, but no solution was found.")
+          } else {
+            report(s"Strategy $name didn't find any candidate solutions.")
           }
         }
-        // it is not possible to solve with any candidate solutions
-        // returned by the current strategy
       }
-      // all strategies have been tried but no solution was found
+
+      report(s"All strategies have been tried, but no solution was found.")
       None
     }
   }
@@ -90,7 +147,7 @@ object ConstraintSolver {
       val v = e.vars.toSeq.head      // name of variable
       val p = c.paramMap(v)             // assumes that corresponding parameter exists
       val f = e.toUnaryFunc(v, p.dim)         // function to search the solution
-      val x0 = genValue(p).normalized.value   // initial value for newton's solver
+      val x0 = genValue(p).head.normalized.value   // initial value for newton's solver
       NumericalSolver.newtonsSolver(f, x0) match {
         case None => return Seq()   // there is an unsatisfiable equation, so fails
         case Some(d) => (p, d, p.dim) // (parameter, value, dimension)
@@ -168,7 +225,7 @@ object ConstraintSolver {
     require(cs.map(_.params).reduce(_++_) == ps.toSet)
 
     // function to be solved using Newton's method
-    val f: Seq[Seq[Double] => Double] = cs map { c =>
+    val f: Seq[Seq[Double] => Option[Double]] = cs map { c =>
       val vs = ps map { p =>
         c.paramMap.find(_._2 == p) match {
           case Some((name, _)) => Some(name -> p.dim)
@@ -179,7 +236,7 @@ object ConstraintSolver {
     }
 
     // initial vector for Newton's method
-    val x0 = ps.map(genValue(_).normalized.value)
+    val x0 = ps.map(genValue(_).head.normalized.value)
 
     // solution
     val sol: Seq[Double] = NumericalSolver.multiNewtonsSolver(f, x0) match {
@@ -238,7 +295,7 @@ object ConstraintSolver {
       // randomly pick one of the most constrained variables
       val idx = util.Random.nextInt(mostConstrainedPs.size)
       val p = mostConstrainedPs(idx)
-      val pq = genValue(p)
+      val pq = genValue(p).head
 
       Map(p -> pq)
     }
