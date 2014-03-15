@@ -5,7 +5,7 @@ import moira.unit.PhysicalQuantity
 import moira.unit.SIUnit
 
 import scala.util.parsing.combinator._
-import moira.expression.function.{Integrate, Pow}
+import moira.expression.function.{Sin, Integrate, Pow}
 
 /*
  * expr ::= term { "+" term | "-" term }.
@@ -60,6 +60,7 @@ object Parser extends JavaTokenParsers {
             case v@Var(_) => Integrate(as(0), v, as(2), as(3))
           }
         }
+        case "sin" if as.size == 1 => Sin(as(0))
       }
     }
   }
