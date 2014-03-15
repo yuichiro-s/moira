@@ -1,7 +1,7 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{DoubleProperty,ObjectProperty}
+import scalafx.beans.property.{BooleanProperty, DoubleProperty, ObjectProperty}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
 import scalafx.scene.shape.Rectangle
@@ -14,11 +14,28 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
 
   val cId = pc0.id
 
+  // constants
+  val RECT_COLOR = Color.rgb(160, 255, 160)
+  val RECT_HOVER_COLOR =  Color.rgb(230, 255, 230)
+
+  val STROKE_COLOR = Color.BLACK
+  val STROKE_SELECTED_COLOR = Color.RED
+  val STROKE_WIDTH = 1
+  val STROKE_SELECTED_WIDTH = 2
+
+  val REL_COLOR = Color.BLACK
+  val UNDEFINED_COLOR = Color.GRAY
+
+  val REL_MARGIN_X = 8
+  val REL_MARGIN_Y = 3
+
+  val UNDEFINED_SEQ: Seq[java.lang.Double] = Seq(4, 4)
+
   // properties
   val x = DoubleProperty(x0)
   val y = DoubleProperty(y0)
-  val centerX = DoubleProperty(x0)
-  val centerY = DoubleProperty(y0)
+
+  val isDefined = BooleanProperty(false)
 
   private val constraint = ObjectProperty(pc0)
   def getConstraint() = constraint()
@@ -29,8 +46,12 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
   private val relText = new Text() {
     x <== DConstraint.this.x
     y <== DConstraint.this.y
-    stroke = Color.BLACK
+    stroke <== when (isDefined) choose REL_COLOR otherwise UNDEFINED_COLOR
     mouseTransparent = true
+
+    boundsInLocal onChange {
+      translateX = -boundsInLocal().width / 2
+    }
   }
 
   private val rectangle = makeDraggable(
@@ -38,9 +59,10 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
       new Rectangle() {
         x <== DConstraint.this.x
         y <== DConstraint.this.y
-        stroke = Color.TOMATO
-        strokeWidth <== when(selected) choose 4 otherwise 2
-        fill <== when (hover) choose Color.LIGHTGREEN otherwise Color.GREEN
+
+        stroke <== when (selected) choose STROKE_SELECTED_COLOR otherwise STROKE_COLOR
+        strokeWidth <== when(selected) choose STROKE_SELECTED_WIDTH otherwise STROKE_WIDTH
+        fill <== when (hover) choose RECT_HOVER_COLOR otherwise RECT_COLOR
 
         handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
           // show the information of the constraint
@@ -50,9 +72,15 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
         }
 
         // Resize the rectangle when the text changes.
-        relText.boundsInLocalProperty onChange {
-          width = relText.boundsInLocal().width
-          height = relText.boundsInLocal().height
+        relText.boundsInLocal onChange {
+          width = relText.boundsInLocal().width + REL_MARGIN_X * 2
+          height = relText.boundsInLocal().height + REL_MARGIN_Y * 2
+        }
+
+        boundsInLocal onChange {
+          translateX = -width() / 2
+          translateY = -height() / 2
+          relText.translateY = height() / 2 - REL_MARGIN_Y - 3
         }
       }
     ))
@@ -66,6 +94,10 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
     // avoid empty string being used to ensure the height is enough
     relText.text = if (c.relStr == "") " " else c.relStr
 
+    isDefined() = c.rel.isDefined
+
+    rectangle.strokeDashArray = if (isDefined()) null else UNDEFINED_SEQ
+
     // update variables
     dVariables() = c.vars match {
       case None => Set[DVariable]()   // constraint is not well-defined yet
@@ -73,8 +105,10 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
         case (varName, i) => {
           val dv = dVariables().find(_.varName == varName) match {
             case Some(dv) => dv
-            case None => new DVariable(this, varName, 20d * i, 20d)
+            case None => new DVariable(this, varName, 40d * i, 40d)
           }
+
+          dv.isBound() = c.paramMap.isDefinedAt(varName)
 
           // update binding of the variable
           c.paramMap.get(varName) match {
@@ -121,9 +155,6 @@ class DConstraint(pc0: ProtoConstraint, x0: Double, y0: Double)(implicit val dia
   dVariables onChange {
     variableGroup.content = dVariables().map(_.group)
   }
-
-  centerX <== x + rectangle.width / 2
-  centerY <== y + rectangle.height / 2
 
   override val group = new Group(variableGroup, rectangle, relText)
 

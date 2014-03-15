@@ -1,7 +1,7 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{DoubleProperty, ObjectProperty}
+import scalafx.beans.property.{BooleanProperty, DoubleProperty, ObjectProperty}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
 import scalafx.scene.shape.Circle
@@ -15,11 +15,25 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit val diagr
   val pId = pp0.id
 
   // constants
-  val RADIUS = 20d
+  val RADIUS = 25d
+  val CIRCLE_COLOR = Color.rgb(255, 160, 160)
+  val CIRCLE_HOVER_COLOR =  Color.rgb(255, 200, 200)
+
+  val STROKE_COLOR = Color.BLACK
+  val STROKE_SELECTED_COLOR = Color.RED
+  val STROKE_WIDTH = 1
+  val STROKE_SELECTED_WIDTH = 2
+
+  val NAME_COLOR = Color.BLACK
+  val VALUE_COLOR = Color.BLACK
+  val BOUND_COLOR = Color.GRAY
+
+  val UNBOUND_SEQ: Seq[java.lang.Double] = Seq(4, 4)
 
   // properties
   val x = DoubleProperty(x0)
   val y = DoubleProperty(y0)
+  val isBound = BooleanProperty(false)
 
   private val parameter = ObjectProperty(pp0)
   def getParameter() = parameter()
@@ -31,9 +45,9 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit val diagr
         radius = RADIUS
         centerX <== DParameter.this.x
         centerY <== DParameter.this.y
-        stroke = Color.RED
-        strokeWidth <== when(selected) choose 4 otherwise 2
-        fill <== when (hover) choose Color.LIGHTYELLOW otherwise Color.LIGHTPINK
+        stroke <== when (selected) choose STROKE_SELECTED_COLOR otherwise STROKE_COLOR
+        strokeWidth <== when(selected) choose STROKE_SELECTED_WIDTH otherwise STROKE_WIDTH
+        fill <== when (hover) choose CIRCLE_HOVER_COLOR otherwise CIRCLE_COLOR
 
         handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
           // show the information of the parameter
@@ -46,25 +60,38 @@ class DParameter(pp0: ProtoParameter, x0: Double, y0: Double)(implicit val diagr
   private val nameText = new Text() {
     x <== DParameter.this.x
     y <== DParameter.this.y
-    stroke = Color.BLUE
+    translateY = -4
+    stroke = NAME_COLOR
     mouseTransparent = true
+
+    text.onChange {
+      translateX = -boundsInLocal().width / 2
+    }
   }
 
   private val valueText = new Text() {
     x <== DParameter.this.x
     y <== DParameter.this.y
-    translateY = 20
-    stroke = Color.GREEN
+    translateY = 16
+    stroke <== when (isBound) choose VALUE_COLOR otherwise BOUND_COLOR
     mouseTransparent = true
+
+    text.onChange {
+      translateX = -boundsInLocal().width / 2
+    }
   }
 
   // update appearance of the parameter
   def update() {
     val p = parameter()
 
+    isBound() = p.value.isDefined
+
+    circle.strokeDashArray = if (isBound()) null else UNBOUND_SEQ
+
     nameText.text = p.name
     valueText.text = p.value match {
-      case Some(pq) =>  pq.toString
+      case Some(pq) => pq.toString
       case None => {
         // When the parameter is not bound, show its dimension.
         p.dim.toString
