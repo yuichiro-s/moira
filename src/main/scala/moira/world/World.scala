@@ -34,7 +34,7 @@ case class World(
 
   def createConstraint(
     relStr: String,
-    paramMap: Map[String, ProtoParameter]
+    paramMap: Map[String, Int]
   ): (World, ProtoConstraint) = {
     val newConst = ProtoConstraint(
       nextConstraintId,
@@ -60,7 +60,7 @@ case class World(
   def updateConstraint(
     id: Int,
     relStr: String,
-    paramMap: Map[String, ProtoParameter]
+    paramMap: Map[String, Int]
   ): (World, ProtoConstraint) = withConstraintId(id) { c =>
     val newConst = c.copy(
       relStr = relStr,
@@ -80,7 +80,7 @@ case class World(
       withParameterId(pId) { p =>
         require(c.vars match { case None => false; case Some(vs) => vs.contains(v) },
           "ProtoConstraint(id=%d) must contain a variable %s.".format(cId, v))
-        updateConstraint(cId, c.relStr, c.paramMap + (v -> p))
+        updateConstraint(cId, c.relStr, c.paramMap + (v -> pId))
       }
     }
   }
@@ -159,15 +159,6 @@ case class World(
     )
     var newWorld = removeParameter(id)
     newWorld = newWorld.copy(parameters = newWorld.parameters + newParam)
-
-    // update /paramMap/ of /ProtoConstraint/s related to the parameter.
-    constraints foreach { pc =>
-      val newParamMap = pc.paramMap.mapValues { pp =>
-        // update /ProtoParameter/ if
-        if (pp.id == id) newParam else pp
-      }
-      newWorld = newWorld.updateConstraint(pc.id, pc.relStr, newParamMap)._1
-    }
 
     (newWorld, newParam)
   }

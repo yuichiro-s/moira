@@ -9,7 +9,7 @@ import moira.expression.Value
 class InsufficientConstraintConfigException(pc: ProtoConstraint, msg: String) extends RuntimeException(s"[id=${pc.id}]${pc.relStr}: $msg")
 
 // Parameter whose definition can be incomplete.
-case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {
+case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[String, Int] = Map()) {
   lazy val rel: Option[Rel] = Parser.parseRel(relStr)
   lazy val vars: Option[Set[String]] = rel.map(_.vars)
   
@@ -20,7 +20,7 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
       s"There is a variable in $paramMap which doesn't appear in $vs.")
   }
 
-  lazy val toConstraint: Constraint = {
+  def toConstraint(pMap: Map[Int, ProtoParameter]): Constraint = {
     rel match {
       case None => throw new InsufficientConstraintConfigException(this,
         s"$relStr is not a complete definition.")
@@ -33,8 +33,16 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
             s"Unbound variable(s): $disconnectedVariables")
         }
 
+        val ppMap: Map[String, ProtoParameter] = paramMap mapValues { id =>
+          pMap.get(id) match {
+            case Some(pp) => pp
+            case None => throw new IllegalArgumentException(
+              s"id=$id is not defined in $paramMap.")
+          }
+        }
+
         // partition into parameters with defined values and undefined values
-        val (defs, undefs) = paramMap.partition {
+        val (defs, undefs) = ppMap.partition {
           // allow only parameters with undefined value
           case (_, pp) => pp.value.isDefined
         }
@@ -52,7 +60,7 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
         val embodiedParamMap: Map[String, Parameter] = undefs.mapValues(_.toParameter)
 
         // check consistency of dimensions
-        val dimMap = paramMap.mapValues(_.dim)
+        val dimMap = ppMap.mapValues(_.dim)
         val dimL = boundRel.lhs.dim(dimMap)
         val dimR = boundRel.rhs.dim(dimMap)
 
@@ -102,14 +110,14 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
 
 object ProtoConstraint {
 
-  def fromXML(source: xml.Node, pMap: Map[Int, ProtoParameter]): ProtoConstraint = {
+  def fromXML(source: xml.Node): ProtoConstraint = {
     val id = (source \ "id").text.toInt
     val relStr = (source \ "rel").text
     val paramMap = ((source \\ "var") collect {
       case n if !(n \\ "pid").isEmpty => {
         val nn = n \\ "name"
         val pn = n \\ "pid"
-        nn.text -> pMap(pn.text.toInt)
+        nn.text -> pn.text.toInt
       }
     }).toMap
 

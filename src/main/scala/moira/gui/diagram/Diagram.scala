@@ -22,16 +22,18 @@ class Diagram extends Scene(400, 300) {
 
   // properties
   val world = ObjectProperty(new World(Set.empty, Set.empty))
-  val dParameters = ObjectProperty(Set[DParameter]())
-  val dConstraints = ObjectProperty(Set[DConstraint]())
 
-  // TODO: sets below have to be typed more specifically
-  val selectedParameters = ObjectProperty(Set[DObject]())
-  val selectedConstraints = ObjectProperty(Set[DObject]())
-  val selectedVariables = ObjectProperty(Set[DObject]())
-  val selectedBindings = ObjectProperty(Set[DObject]())
+  val dParameters = ObjectProperty(Map[Int, DParameter]())
+  val dConstraints = ObjectProperty(Map[Int, DConstraint]())
+  val dVariables = ObjectProperty(Map[(Int, String), DVariable]())
+  val dBindings = ObjectProperty(Map[((Int, String), Int), DBinding]())
 
-  val infoObject: ObjectProperty[Option[DObject]] = ObjectProperty(None)
+  val selectedParameters = ObjectProperty(Set[Int]())
+  val selectedConstraints = ObjectProperty(Set[Int]())
+  val selectedVariables = ObjectProperty(Set[(Int, String)]())
+  val selectedBindings = ObjectProperty(Set[((Int, String), Int)]())
+
+  val infoObject: ObjectProperty[Option[DObject[Int]]] = ObjectProperty(None)
 
   case class MouseInfo(lastPressedX: Double, lastPressedY: Double)
   val mouseInfo = ObjectProperty(MouseInfo(200d, 200d))
@@ -40,26 +42,28 @@ class Diagram extends Scene(400, 300) {
 
   // Unselects objects.
   def unselect() {
-    selectedParameters() = Set[DObject]()
-    selectedConstraints() = Set[DObject]()
-    selectedVariables() = Set[DObject]()
-    selectedBindings() = Set[DObject]()
+    selectedParameters() = Set.empty
+    selectedConstraints() = Set.empty
+    selectedVariables() = Set.empty
+    selectedBindings() = Set.empty
   }
 
   val parameterGroup = new Group()
   val constraintGroup = new Group()
+  val variableGroup = new Group()
+  val bindingGroup = new Group()
 
   // operations
 
-  def createConstraint(relStr: String = "", paramMap: Map[String, ProtoParameter] = Map()) {
+  def createConstraint(relStr: String = "", paramMap: Map[String, Int] = Map()) {
     val x = mouseInfo().lastPressedX
     val y = mouseInfo().lastPressedY
 
     world() = world().createConstraint(relStr, paramMap) match {
       case (w, pc) => {
-        val newPc = new DConstraint(pc, x, y)
-        infoObject() = Some(newPc)
-        dConstraints() += newPc
+        val newDc = new DConstraint(pc.id, x, y)(diagram)
+        infoObject() = Some(newDc)
+        dConstraints() += pc.id -> newDc
         w
       }
     }
@@ -79,69 +83,56 @@ class Diagram extends Scene(400, 300) {
     world() = world().createParameter(
       name, dim, displayUnit, lower, upper, value) match {
       case (w, pp) => {
-        val newDp = new DParameter(pp, x, y)
+        val newDp = new DParameter(pp.id, x, y)(diagram)
         infoObject() = Some(newDp)
-        dParameters() += newDp
+        dParameters() += pp.id -> newDp
         w
       }
     }
   }
 
-  def createBinding(dp: DParameter, dvs: Set[DVariable]) {
-    dvs foreach { dv: DVariable =>
-      val dc: DConstraint = dv.constraint
-      val pc: ProtoConstraint = dc.getConstraint()
+  def createBinding(pId: Int, vIds: Set[(Int, String)]) {
+    vIds foreach {
+      case (cId, varName) => {
+        val (newWorld, _) = world().addConnection(cId, varName, pId)
 
-      val (newWorld, _) = world().updateConstraint(pc.id, pc.relStr, pc.paramMap.updated(dv.varName, dp.getParameter()))
-
-      // update world
-      world() = newWorld
+        // update world
+        world() = newWorld
+      }
     }
   }
 
   def removeSelectedObjects() {
-    val dbs: Set[DBinding] = selectedBindings() collect { case b: DBinding => b }
-    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
-    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
-
     var tmpWorld = world()
 
     // remove bindings
-    dbs foreach { b =>
-      val dv = b.variable
-      val dp = b.parameter
-      val dc = dv.constraint
-      val pc = dc.getConstraint()
-
-      assert(dp.getParameter() == pc.paramMap(dv.varName),
-        "Variable %s is not bound to %s.".format(dv.varName, dp.getParameter()))
-
-      // remove binding
-      tmpWorld = tmpWorld.updateConstraint(pc.id, pc.relStr, pc.paramMap - dv.varName)._1
+    selectedBindings() foreach {
+      case ((cId, varName), _) => {
+        // remove binding
+        tmpWorld = tmpWorld.removeConnection(cId, varName)._1
+      }
     }
 
     // remove constraints
-    dcs foreach { dc =>
-      tmpWorld = tmpWorld.removeConstraint(dc.cId)
+    selectedConstraints() foreach { cId =>
+      tmpWorld = tmpWorld.removeConstraint(cId)
     }
 
     // remove parameters and connected bindings
-    dps foreach { dp =>
+    selectedParameters() foreach { pId =>
       // remove bindings connected to the parameter
       tmpWorld.constraints foreach { pc =>
         pc.paramMap foreach {
-          case (varName, pp) => {
-            if (pp.id == dp.pId) {
-              assert(dp.getParameter() == pc.paramMap(varName),
-                "The state of parameter(id=%d) is inconsistent.".format(pp.id))
-              tmpWorld = tmpWorld.updateConstraint(pc.id, pc.relStr, pc.paramMap - varName)._1
+          case (varName, pId2) => {
+            if (pId == pId2) {
+              tmpWorld = tmpWorld.removeConnection(pc.id, varName)._1
             }
           }
         }
       }
 
       // remove parameter
-      tmpWorld = tmpWorld.removeParameter(dp.pId)
+      tmpWorld = tmpWorld.removeParameter(pId)
     }
 
     // update /world/
@@ -152,14 +143,17 @@ class Diagram extends Scene(400, 300) {
   // and binds the values to the parameters
   def calculate() {
     // selected constraints
-    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
-
-    val pcs: Set[ProtoConstraint] = dcs.map(_.getConstraint())
+    val pcs: Set[ProtoConstraint] = world().constraints.filter { pc =>
+      selectedConstraints().contains(pc.id)
+    }
 
     try {
-      val cs: Set[Constraint] = pcs.map(_.toConstraint)
+      val pMap: Map[Int, ProtoParameter] = (world().parameters map { pp =>
+        pp.id -> pp
+      }).toMap
+      val cs: Set[Constraint] = pcs.map(_.toConstraint(pMap))
 
-      ConstraintSolver.solve(cs)(Some(System.out)) match {
+      ConstraintSolver.solve(cs) match {
         case None => {
           println("Failed to solve the constraints.")
         }
@@ -189,17 +183,22 @@ class Diagram extends Scene(400, 300) {
   }
 
   def selectAll() {
-    selectedConstraints() = Set[DObject]() ++ dConstraints()
-    selectedVariables() = Set[DObject]() ++ dConstraints().flatMap(_.dVariables())
-    selectedParameters() = Set[DObject]() ++ dParameters()
+    selectedConstraints() = dConstraints().keys.toSet
+    selectedVariables() = dVariables().keys.toSet
+    selectedParameters() = dParameters().keys.toSet
+    selectedBindings() = dBindings().keys.toSet
   }
 
   def unsetVariables() {
     var newWorld = world()
-    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
 
-    dps foreach { dp =>
-      val pp: ProtoParameter = dp.getParameter()
+    selectedParameters() foreach { pId =>
+      val pp: ProtoParameter = world().getParameterById(pId) match {
+        case Some(pp) => pp
+        case None =>
+          throw new IllegalStateException(
+            s"Parameter(id=$pId) is not found in ${world()}.")
+      }
       newWorld = newWorld.updateParameter(pp.id, pp.name, pp.dim, pp.displayUnit, pp.lower, pp.upper, None)._1
     }
 
@@ -263,15 +262,7 @@ class Diagram extends Scene(400, 300) {
                   selectedConstraints().size == 0 &&
                   selectedBindings().size == 0) {
                 // if exactly one parameter and more than 0 variables are selected
-                val dp: DParameter = selectedParameters().head match {
-                  case dp: DParameter => dp
-                  case _ => throw new IllegalStateException("Non-parameter found in /selectedParameters/.")
-                }
-                val dvs: Set[DVariable] = selectedVariables() map {
-                  case dv: DVariable => dv
-                  case _ => throw new IllegalStateException("Non-variable found in /selectedVariables/.")
-                }
-                createBinding(dp, dvs)
+                createBinding(selectedParameters().head, selectedVariables())
               } else {
                 println("Parameter and variables have to be selected.")
               }
@@ -300,9 +291,9 @@ class Diagram extends Scene(400, 300) {
   def startDrag(x: Double, y: Double) {
     mouseInfo() = MouseInfo(x, y)
 
-    val dvs: Set[DVariable] = selectedVariables() collect { case v: DVariable => v }
-    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
-    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
+    val dvs: Set[DVariable] = selectedVariables().flatMap { id => dVariables().get(id) }
+    val dcs: Set[DConstraint] = selectedConstraints().flatMap { id => dConstraints().get(id) }
+    val dps: Set[DParameter] = selectedParameters().flatMap { id => dParameters().get(id) }
 
     dvs.foreach { dv => dv.setDragInfo(dv.tx(), dv.ty()) }
     dcs.foreach { dc => dc.setDragInfo(dc.x(), dc.y()) }
@@ -310,26 +301,26 @@ class Diagram extends Scene(400, 300) {
   }
 
   def drag(x: Double, y: Double) {
-    val dvs: Set[DVariable] = selectedVariables() collect { case v: DVariable => v }
-    val dcs: Set[DConstraint] = selectedConstraints() collect { case c: DConstraint => c }
-    val dps: Set[DParameter] = selectedParameters() collect { case p: DParameter => p }
+    val dvs: Set[DVariable] = selectedVariables().flatMap { id => dVariables().get(id) }
+    val dcs: Set[DConstraint] = selectedConstraints().flatMap { id => dConstraints().get(id) }
+    val dps: Set[DParameter] = selectedParameters().flatMap { id => dParameters().get(id) }
 
     val dx = x - mouseInfo().lastPressedX
     val dy = y - mouseInfo().lastPressedY
 
-    dvs.foreach { dv =>
-      if (!dcs.contains(dv.constraint)) {
+    dvs foreach { dv =>
+      if (!selectedConstraints().contains(dv.cId)) {
         // /DVariable/ follows its parent /DConstraint/, so don't move /dv/
         // when its parent /dc/ is also dragged.
         dv.tx() = dv.dragInfo().x0 + dx
         dv.ty() = dv.dragInfo().y0 + dy
       }
     }
-    dcs.foreach { dc =>
+    dcs foreach { dc =>
       dc.x() = dc.dragInfo().x0 + dx
       dc.y() = dc.dragInfo().y0 + dy
     }
-    dps.foreach { dp =>
+    dps foreach { dp =>
       dp.x() = dp.dragInfo().x0 + dx
       dp.y() = dp.dragInfo().y0 + dy
     }
@@ -355,7 +346,7 @@ class Diagram extends Scene(400, 300) {
   }
 
   root = new BorderPane() {
-    center = new Group(constraintGroup, parameterGroup) {
+    center = new Group(bindingGroup, variableGroup, constraintGroup, parameterGroup) {
       managed = false
     }
     top = menuBar
@@ -366,31 +357,90 @@ class Diagram extends Scene(400, 300) {
 
   // update GUI
   dParameters onChange {
-    parameterGroup.content = dParameters().map(_.group)
+    parameterGroup.content = dParameters().values.map(_.group)
   }
   dConstraints onChange {
-    constraintGroup.content = dConstraints().map(_.group)
+    constraintGroup.content = dConstraints().values.map(_.group)
+  }
+  dVariables onChange {
+    variableGroup.content = dVariables().values.map(_.group)
+  }
+  dBindings onChange {
+    bindingGroup.content = dBindings().values.map(_.group)
   }
 
-  // synchronize /dParameters/ and /dConstraints/ with /world/
+  // synchronize /dParameters/, /dConstraints/, /dVariables/ and /dBindings/ with /world/
   world onChange {
     val pps = world().parameters
     val pcs = world().constraints
 
-    // Remove parameters and constraints that are not in /world/ any more.
-    dParameters() = dParameters().filter { dp => pps.exists(_.id == dp.pId) }
-    dConstraints() = dConstraints().filter { dc => pcs.exists(_.id == dc.cId) }
+    // Remove objects that do not exist in /world/ any more.
+    dParameters() = dParameters().filter { case (id, _) => pps.exists(_.id == id) }
+    dConstraints() = dConstraints().filter { case (id, _) => pcs.exists(_.id == id) }
+    dVariables() = dVariables().filter {
+      case ((cId, varName), _) => {
+        pcs.find(_.id == cId) match {
+          case None => false  // parent constraint does not exist
+          case Some(pc) => {
+            pc.vars match {
+              case None => false  // parent constraint is not parseable
+              case Some(vs) => vs.contains(varName)
+            }
+          }
+        }
+      }
+    }
+    dBindings() = dBindings().filter {
+      case (((cId, varName), pId), _) => {
+        (pcs.find(_.id == cId), pps.find(_.id == pId)) match {
+          case (Some(pc), Some(pp)) => pc.paramMap.isDefinedAt(varName)
+          case _ => false // either constraint or parameter doesn't exist
+        }
+      }
+    }
+
+    // Create /DVariable/s and /DBinding/s
+    pcs foreach { pc =>
+      val cId = pc.id
+      pc.vars match {
+        case None =>
+        case Some(vs) => {
+          vs.zipWithIndex foreach {
+            case (varName, i) => {
+              val vId = (cId, varName)
+              if (!dVariables().isDefinedAt(vId)) {
+                // If /DVariable/ has not been created, create one.
+                val newDv = new DVariable(cId, varName, i * 40d, 40d)(diagram)
+                dVariables() += vId -> newDv
+              }
+
+              pc.paramMap.get(varName) match {
+                case None =>
+                case Some(pId) => {
+                  val bId = (vId, pId)
+                  if (!dBindings().isDefinedAt(bId)) {
+                    // If /DBinding/ has not been created, create one.
+                    val newDb = new DBinding(vId, pId)(diagram)
+                    dBindings() += bId -> newDb
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // If the object which the info window is currently showing no longer exists,
     // set the info window to empty.
     infoObject() match {
       case Some(dp: DParameter) => {
-        if (!pps.exists(_.id == dp.pId)) {
+        if (!pps.exists(_.id == dp.id)) {
           infoObject() = None
         }
       }
       case Some(dc: DConstraint) => {
-        if (!pcs.exists(_.id == dc.cId)) {
+        if (!pcs.exists(_.id == dc.id)) {
           infoObject() = None
         }
       }
@@ -400,20 +450,15 @@ class Diagram extends Scene(400, 300) {
 
   def toXML(): xml.Elem = {
     <world>
-      { dConstraints().map(_.toXML()) }
-      { dParameters().map(_.toXML()) }
+      { dConstraints().values.map(_.toXML()) }
+      { dParameters().values.map(_.toXML()) }
     </world>
   }
 
   def loadXML(source: xml.Elem) {
     def getPos(node: xml.Node): (Double, Double) = {
-      val x: Double = (node \ "x" collectFirst {
-        case <x>{n}</x> => n.text.toDouble
-      }).get
-      val y: Double = (node \ "y" collectFirst {
-        case <y>{n}</y> => n.text.toDouble
-      }).get
-
+      val x: Double = (node \ "x").text.toDouble
+      val y: Double = (node \ "y").text.toDouble
       (x, y)
     }
 
@@ -422,44 +467,63 @@ class Diagram extends Scene(400, 300) {
       val (pps, dps) = (source \ "parameter" map { node =>
         val pp = ProtoParameter.fromXML(node)
         val (x, y) = getPos(node)
-        (pp, new DParameter(pp, x, y))
+        (pp, new DParameter(pp.id, x, y)(diagram))
       }).unzip
-      val pMap = pps.map { pp => pp.id -> pp }.toMap
 
-      dParameters() = dps.toSet
+      dParameters() = (dps.toSet map { dp: DParameter =>
+        dp.id -> dp
+      }).toMap
 
       // create constraints
-      val dcs = source \ "constraint" map { node =>
-        val pc = ProtoConstraint.fromXML(node, pMap)
+      val (pcs, dcs, dvbss) = (source \ "constraint" map { node =>
+        val pc = ProtoConstraint.fromXML(node)
+        val cId = pc.id
+
         val (x, y) = getPos(node)
+        val dc = new DConstraint(cId, x, y)(diagram)
 
-        val dc = new DConstraint(pc, x, y)
-
-        // set positions of variables
-        dc.dVariables() foreach { dv =>
-          val (x, y) = ((node \\ "var") collectFirst {
-              case n if (n \\ "name").text == dv.varName => {
-                ((n \\ "x").text.toDouble, (n \\ "y").text.toDouble)
+        val dvbs: (Set[DVariable], Set[Option[DBinding]]) = pc.vars match {
+          case None => (Set.empty, Set.empty)
+          case Some(vs) => {
+            (vs map { varName =>
+              val (x, y) = ((node \\ "var") collectFirst {
+                case n if (n \\ "name").text == varName => {
+                  ((n \\ "x").text.toDouble, (n \\ "y").text.toDouble)
+                }
+              }).get
+              val dv = new DVariable(cId, varName, x, y)(diagram)
+              val db = pc.paramMap.get(varName).map { pId =>
+                new DBinding((cId, varName), pId)(diagram)
               }
-            }).get
-          dv.tx() = x
-          dv.ty() = y
+
+              (dv, db)
+            }).unzip
+          }
         }
 
-        dc
-      }
+        (pc, dc, dvbs)
+      }).unzip3
 
-      dConstraints() = dcs.toSet
+      val (dvss, dbss) = dvbss.unzip
+      val dvs: Seq[DVariable] = dvss.flatten
+      val dbs: Seq[DBinding] = dbss.flatten collect { case Some(db) => db }
 
-      val nextParameterId = dps.maxBy(_.pId).pId + 1
-      val nextConstraintId = dcs.maxBy(_.cId).cId + 1
+      dConstraints() = (dcs.toSet map { dc: DConstraint =>
+        dc.id -> dc
+      }).toMap
 
-      world() = new World(
-        dcs.toSet map { dc: DConstraint => dc.getConstraint() },
-        dps.toSet map { dp: DParameter => dp.getParameter() },
-        nextConstraintId,
-        nextParameterId
-      )
+      dVariables() = (dvs.toSet map { dv: DVariable =>
+        dv.id -> dv
+      }).toMap
+
+      dBindings() = (dbs.toSet map { db: DBinding =>
+        db.id -> db
+      }).toMap
+
+      val nextParameterId = dps.maxBy(_.id).id + 1
+      val nextConstraintId = dcs.maxBy(_.id).id + 1
+
+      world() = new World(pcs.toSet, pps.toSet, nextConstraintId, nextParameterId)
 
     } catch {
       case e: NumberFormatException => println(e)

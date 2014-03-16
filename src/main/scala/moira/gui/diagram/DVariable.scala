@@ -2,13 +2,15 @@ package moira.gui.diagram
 
 import scalafx.Includes._
 import scalafx.scene.Group
-import scalafx.beans.property.{BooleanProperty, ObjectProperty, DoubleProperty}
+import scalafx.beans.property.{BooleanProperty,DoubleProperty}
 import scalafx.scene.shape.{Line,Circle}
 import scalafx.scene.paint.Color
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
 
-class DVariable(val constraint: DConstraint, val varName: String, tx0: Double, ty0: Double)(implicit val diagram: Diagram) extends DObject(diagram.selectedVariables) with Draggable {
+class DVariable(val cId: Int, val varName: String, tx0: Double, ty0: Double)(val diagram: Diagram) extends DObject(diagram.selectedVariables)(diagram) with Draggable {
+
+  override val id = (cId, varName)
 
   // constants
   val RADIUS = 14d
@@ -35,8 +37,6 @@ class DVariable(val constraint: DConstraint, val varName: String, tx0: Double, t
   val ty = DoubleProperty(ty0)
 
   val isBound = BooleanProperty(false)
-
-  val dBinding: ObjectProperty[Option[DBinding]] = ObjectProperty(None)
 
   val bindingGroup = new Group()
 
@@ -76,8 +76,6 @@ class DVariable(val constraint: DConstraint, val varName: String, tx0: Double, t
 
   // line which connects variable and its parent constraint
   private val constraintLine = new Line() {
-    startX <== constraint.x
-    startY <== constraint.y
     endX <== DVariable.this.x
     endY <== DVariable.this.y
 
@@ -85,12 +83,25 @@ class DVariable(val constraint: DConstraint, val varName: String, tx0: Double, t
     strokeWidth = LINE_WIDTH
   }
 
-  x <== constraint.x + tx
-  y <== constraint.y + ty
+  override val group = new Group(constraintLine, circle, nameText)
 
-  dBinding onInvalidate {
-    bindingGroup.content = dBinding().toSeq.map(_.group)
+  def update() {
+    diagram.dConstraints().get(cId) match {
+      case None =>  // parent constraint no longer exists
+      case Some(dc) => {
+        // rebind properties of the /DVariable/
+        x <== dc.x + tx
+        y <== dc.y + ty
+
+        // rebind properties of /constraintLine/
+        constraintLine.startX <== dc.x
+        constraintLine.startY <== dc.y
+      }
+    }
   }
 
-  override val group = new Group(constraintLine, bindingGroup, circle, nameText)
+  diagram.world onChange { update() }
+
+  // initialization
+  update()
 }

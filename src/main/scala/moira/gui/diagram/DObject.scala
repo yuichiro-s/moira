@@ -7,7 +7,11 @@ import scalafx.scene.shape.Shape
 import javafx.event.EventHandler
 import javafx.scene.input.MouseEvent
 
-abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagram: Diagram) {
+abstract class DObject[T](selectedSet: ObjectProperty[Set[T]])(implicit diagram: Diagram) {
+
+  type Id = T
+  val id: Id
+
   // actual node
   val group: Group
 
@@ -16,7 +20,7 @@ abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagr
 
   // Update selected
   selectedSet.onChange {
-    selected() = selectedSet().contains(this)
+    selected() = selectedSet().contains(id)
   }
 
   // Makes the shape selectable.
@@ -27,7 +31,7 @@ abstract class DObject(selectedSet: ObjectProperty[Set[DObject]])(implicit diagr
         if (!me.isShiftDown) {
           diagram.unselect()  // unselect other objects
         }
-        selectedSet() += DObject.this
+        selectedSet() += id
         me.consume()
       }
     }

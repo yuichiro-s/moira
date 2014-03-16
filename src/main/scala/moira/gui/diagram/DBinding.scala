@@ -6,7 +6,12 @@ import scalafx.scene.shape.Line
 import scalafx.scene.paint.Color
 import scalafx.scene.input.MouseEvent
 
-class DBinding(val variable: DVariable, val parameter: DParameter)(implicit diagram: Diagram) extends DObject(diagram.selectedBindings) {
+class DBinding(val vId: (Int, String), val pId: Int)(diagram: Diagram) extends DObject(diagram.selectedBindings)(diagram) {
+
+  val cId = vId._1
+  val varName = vId._2
+
+  override val id = (vId, pId)
 
   // constants
   val STROKE_COLOR = Color.rgb(0, 0, 200)
@@ -19,18 +24,28 @@ class DBinding(val variable: DVariable, val parameter: DParameter)(implicit diag
     stroke <== when (selected) choose STROKE_SELECTED_COLOR otherwise (when (hover) choose STROKE_HOVER_COLOR otherwise STROKE_COLOR)
     strokeWidth <== when(selected) choose STROKE_SELECTED_WIDTH otherwise STROKE_WIDTH
 
-    // start point is variable
-    startX <== variable.x
-    startY <== variable.y
-
-    // end point is parameter
-    endX <== parameter.x
-    endY <== parameter.y
-
     handleEvent(MouseEvent.MousePressed) { me: MouseEvent =>
       me.consume()
     }
   })
 
   override val group = new Group(line)
+
+  def update() {
+    (diagram.dParameters().get(pId), diagram.dVariables().get(vId)) match {
+      case (Some(dp), Some(dv)) => {
+        // rebind properties of line
+        line.startX <== dv.x
+        line.startY <== dv.y
+        line.endX <== dp.x
+        line.endY <== dp.y
+      }
+      case _ => // either parameter or variable no longer exists
+    }
+  }
+
+  diagram.world onChange { update() }
+
+  // initialization
+  update()
 }
