@@ -50,15 +50,15 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
       diagram.infoObject onChange { (_, _, odo) =>
         center = odo match {
           case None => emptyInfoPane
-          case Some(obj) =>  obj match {
+          case Some(obj) => obj match {
             case dp: DParameter => {
-              // switch parameter
-              parameterInfoPane.pp <== dp.parameterProperty
+              parameterInfoPane.pId() = dp.id
+              parameterInfoPane.updateControls()
               parameterInfoPane
             }
             case dc: DConstraint => {
-              // switch constraint
-              constraintInfoPane.pc <== dc.constraintProperty
+              constraintInfoPane.cId() = dc.id
+              constraintInfoPane.updateControls()
               constraintInfoPane
             }
             case _ => emptyInfoPane
