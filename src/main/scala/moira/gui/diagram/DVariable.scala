@@ -96,6 +96,12 @@ class DVariable(val cId: Int, val varName: String, tx0: Double, ty0: Double)(val
         // rebind properties of /constraintLine/
         constraintLine.startX <== dc.x
         constraintLine.startY <== dc.y
+
+        isBound() = dc.getConstraint() match {
+          case Some(pc) => pc.paramMap.isDefinedAt(varName)
+          case None => throw new IllegalStateException(
+            s"Constraint(id=${dc.id}}) is not found.")
+        }
       }
     }
   }

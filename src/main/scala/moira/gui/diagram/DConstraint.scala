@@ -1,7 +1,7 @@
 package moira.gui.diagram
 
 import scalafx.Includes._
-import scalafx.beans.property.{BooleanProperty, DoubleProperty, ObjectProperty}
+import scalafx.beans.property.{BooleanProperty, DoubleProperty}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.text.Text
 import scalafx.scene.shape.Rectangle

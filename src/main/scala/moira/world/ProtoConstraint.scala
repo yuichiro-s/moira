@@ -1,10 +1,14 @@
 package moira.world
 
 import moira.constraint.{Constraint,ConstraintType,Parameter}
-import moira.expression.{Expr,Rel,RelType,BinOp,BinOpType,Var,Funcall,Parser}
+import moira.expression._
 import moira.unit.SIDim
 import moira.unit.PQZero
+import moira.constraint.Parameter
+import scala.Some
+import moira.expression.Rel
 import moira.expression.Value
+import moira.constraint.Constraint
 
 class InsufficientConstraintConfigException(pc: ProtoConstraint, msg: String) extends RuntimeException(s"[id=${pc.id}]${pc.relStr}: $msg")
 
@@ -66,8 +70,8 @@ case class ProtoConstraint(id: Int = -1, relStr: String = "", paramMap: Map[Stri
 
         // It is allowed to compare 0 with any dimensional values
         if (dimL != dimR && boundRel.lhs != Value(PQZero) && boundRel.rhs != Value(PQZero)) {
-          throw new InsufficientConstraintConfigException(this,
-            s"Dimension of LHS $dimL is incompatible with dimension of RHS $dimR.")
+          throw new DimensionInconsistencyException(boundRel.rhs,
+            s"Dimension of RHS $dimR is incompatible with dimension of LHS $dimL.")
         }
 
         // convert related /ProtoParameter/s to /Parameter/s
