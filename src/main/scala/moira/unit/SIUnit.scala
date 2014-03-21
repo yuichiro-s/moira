@@ -12,4 +12,3 @@ case class SIUnit(factor: Double = 1.0, dim: SIDim = SIDim()) {
     SIUnit(Math.pow(factor, n), dim**n)
 
 }
-

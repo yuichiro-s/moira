@@ -1,68 +1,10 @@
 package moira.unit
 
-object CommonDims {
-  val NODIM = SIDim()
-
-  val LENGTH = SIDim(m=1)
-  val MASS = SIDim(kg=1)
-  val TIME = SIDim(s=1)
-  val ELECTRIC_CURRENT = SIDim(a=1)
-  val TEMPERATURE = SIDim(k=1)
-  val LUMINOUS_INTENSITY = SIDim(cd=1)
-  val AMOUNT_OF_SUBSTANCE = SIDim(mol=1)
-
-  val AREA = LENGTH ** 2
-  val VOLUME = LENGTH ** 3
-
-  val VELOCITY = LENGTH / TIME
-  val ACCELERATION = VELOCITY / TIME
-
-  val FREQUENCY = NODIM / TIME
-
-  val DENSITY = MASS / VOLUME
-
-  val FORCE = MASS * ACCELERATION
-  val PRESSURE = FORCE / AREA
-  val ENERGY = FORCE * LENGTH
-  val POWER = ENERGY / TIME
-
-  val ELECTRIC_CHARGE = ELECTRIC_CURRENT * TIME
-  val VOLTAGE = ENERGY / ELECTRIC_CURRENT
-  val CAPACITANCE = ELECTRIC_CHARGE / VOLTAGE
-  val RESISTANCE = VOLTAGE / ELECTRIC_CURRENT
-
-  // known dimensions
-  val nameToDim = Map(
-    "Dimensionless" -> NODIM,
-
-    "Length" -> LENGTH,
-    "Area" -> AREA,
-    "Volume" -> VOLUME,
-
-    "Velocity" -> VELOCITY,
-    "Acceleration" -> ACCELERATION,
-
-    "Time" -> TIME,
-    "Frequency" -> FREQUENCY,
-
-    "Mass" -> MASS,
-    "Density" -> DENSITY,
-
-    "Force" -> FORCE,
-    "Pressure" -> PRESSURE,
-    "Energy" -> ENERGY,
-    "Power" -> POWER,
-
-    "Electric Charge" -> ELECTRIC_CHARGE,
-    "Voltage" -> VOLTAGE,
-    "Capacitance" -> CAPACITANCE,
-    "Resistance" -> RESISTANCE
-  )
-  val dimToName = nameToDim.map(_.swap)
-}
-
 object CommonUnits {
+  // no dimension
   val one = SIUnit(1, CommonDims.NODIM)
+
+  // basic units
   val meter = SIUnit(1, CommonDims.LENGTH)
   val kilogram = SIUnit(1, CommonDims.MASS)
   val second = SIUnit(1, CommonDims.TIME)
@@ -71,6 +13,7 @@ object CommonUnits {
   val candela = SIUnit(1, CommonDims.LUMINOUS_INTENSITY)
   val mole = SIUnit(1, CommonDims.AMOUNT_OF_SUBSTANCE)
 
+  // prefixes
   val kilo = 1000.0
   val milli = 0.001
 
@@ -113,7 +56,7 @@ object CommonUnits {
   val ohm = volt / ampere
 
   // known units
-  val nameToUnit = Map(
+  val nameToUnit: Map[String, SIUnit] = Map(
     "" -> one,
     "m" -> meter,
     "kg" -> kilogram,
@@ -144,15 +87,53 @@ object CommonUnits {
     "V" -> volt,
     "F" -> farad
   )
-  val unitToName = nameToUnit.map(_.swap)
+  val unitToName: Map[SIUnit, String] = nameToUnit.map(_.swap)
+
+  // Parses /str/ into /SIUnit/.
+  def parseUnit(str: String): Option[SIUnit] = {
+    // look up /nameToUnit/
+    nameToUnit.get(str) match {
+      case Some(unit) => Some(unit)
+      case None => {
+        // try to parse /str/
+        try {
+          require(str.size >= 2, s"$str is too short.")
+          require(str.head == '<' && str.last == '>',
+            s"$str isn't enclosed by brackets.")
+          require(str.count(_=='*') == 1,
+            s"$str contains ${str.count(_=='*')} asterisks, not 1.")
+
+          val (fStr, dimStr) = {
+            val s = str.substring(1, str.size-1).split("\\*", 2)
+            assert(s.size == 2)
+            (s(0), s(1))
+          }
+
+          // factor
+          val f = fStr.toDouble
+
+          // create /SIUnit/ if /dimStr/ is parsable
+          SIDim.fromStr(dimStr).map(SIUnit(f, _))
+        } catch {
+          case e: Exception => throw e//None
+        }
+      }
+    }
+  }
 
   // Returns pairs of known units and their names that are of the dimension /dim/.
   def unitNames(dim: SIDim): Seq[(String, SIUnit)] = {
-    val defaultUnit = SIUnit(1.0, dim)
-    val defaultUnitName = "<" + defaultUnit.toString + ">"
+    val knownUnits = (nameToUnit filter {
+      case (n, u) => u.dim == dim
+    }).toSeq
 
-    Seq((defaultUnitName, defaultUnit)) ++
-      nameToUnit filter { case (n, u) => u.dim == dim } toSeq
+    // append default unit so that dim without known units have at least 1 unit registered.
+    val defaultUnit = SIUnit(1.0, dim)
+    val defaultUnitName = defaultUnit match {
+      case SIUnit(factor, dim) => s"<$factor*$dim>"
+    }
+
+    knownUnits :+ (defaultUnitName, defaultUnit)
   }
 
   implicit def doubleToUnit(value: Double): SIUnit = SIUnit(value, SIDim())

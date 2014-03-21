@@ -79,7 +79,7 @@ case class World(
     withConstraintId(cId) { c =>
       withParameterId(pId) { p =>
         require(c.vars match { case None => false; case Some(vs) => vs.contains(v) },
-          "ProtoConstraint(id=%d) must contain a variable %s.".format(cId, v))
+          s"ProtoConstraint(id=${cId}) must contain a variable ${v}.")
         updateConstraint(cId, c.relStr, c.paramMap + (v -> pId))
       }
     }

@@ -393,7 +393,10 @@ class Diagram extends Scene(400, 300) {
     dBindings() = dBindings().filter {
       case (((cId, varName), pId), _) => {
         (pcs.find(_.id == cId), pps.find(_.id == pId)) match {
-          case (Some(pc), Some(pp)) => pc.paramMap.isDefinedAt(varName)
+          case (Some(pc), Some(pp)) => pc.paramMap.get(varName) match {
+            case None => false
+            case Some(id) => id == pp.id  // connected to the right parameter
+          }
           case _ => false // either constraint or parameter doesn't exist
         }
       }

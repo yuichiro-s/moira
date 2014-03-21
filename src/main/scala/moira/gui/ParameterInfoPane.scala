@@ -1,53 +1,120 @@
 package moira.gui
 
-import moira.unit.{SIUnit, PhysicalQuantity, CommonDims, CommonUnits}
-import scalafx.beans.property.IntegerProperty
+import scalafx.Includes._
+import scalafx.beans.property.{BooleanProperty, ObjectProperty}
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.Node
 import scalafx.scene.control.{Label,TextField,ComboBox}
 import scalafx.scene.layout.{HBox,VBox}
 
+import moira.unit.{SIUnit, PhysicalQuantity, CommonDims, CommonUnits}
 import moira.gui.diagram.Diagram
-import moira.world.World
+import moira.world.ProtoParameter
 
 class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
-  val pId = IntegerProperty(-1) // initialized with meaningless value
+  // keep track of which parameter is currently shown
+  val pId: ObjectProperty[Option[Int]] = ObjectProperty(None)
 
-  // controllers
+  // Whether all controls have been initialized.
+  val initialized: BooleanProperty = BooleanProperty(false)
+
+  // properties
+  val unit: ObjectProperty[Option[SIUnit]] = ObjectProperty(None)
+
+  // controls
   // User input is validated here, and if valid, the change takes place.
-  val nameField = new TextField()
+  val nameField = new TextField() {
+    onAction = handle { updateParameter() }
+  }
 
+  // list of dimensions
   val dimBox = new ComboBox[String]() {
     items = ObservableBuffer(CommonDims.nameToDim.keys.toSeq)
   }
 
+  // list of units which have the specified dimension
   val unitBox = new ComboBox[String]() {
     // When /dimBox/ is changed, /unitBox/ updates its entries
     // to show the corresponding unit names.
     dimBox.value onChange { (_, _, dimStr) =>
       CommonDims.nameToDim.get(dimStr) match {
-        case None => new IllegalStateException("/dimBox.value()/ must be a name of a known dimension.")
+        case None => new IllegalStateException(
+          s"$dimStr is not a known dimension.")
         case Some(dim) => {
-          // update unitBox
-          items = ObservableBuffer(CommonUnits.unitNames(dim).map(_._1))
+          val unitNames = CommonUnits.unitNames(dim).map(_._1)
+
+          assert(unitNames.nonEmpty,
+            s"There is no registered unit of dimension $dim.")
+
+          // update /unitBox/
+          items = ObservableBuffer(unitNames)
+
+          // select first element
+          value = unitNames(0)
         }
+      }
+    }
+
+    value onChange { (_, _, unitStr) =>
+      if (unitStr == null) {
+        unit() = None
+      } else {
+        unit() = CommonUnits.parseUnit(unitStr) match {
+          case Some(u) => Some(u)
+          case None => throw new IllegalStateException(
+            s"$unitStr is not a known unit.")
+        }
+        // nothing is selected(unitStr == null) right after /dimBox/ is changed.
+        updateParameter()
       }
     }
   }
 
-  val valueField = new TextField()
-  val lowerField = new TextField()
-  val upperField = new TextField()
+  // /TextField/ which recalculates value when accompanying unit is changed.
+  class PQField extends TextField {
+    unit onChange { (_, oldUnit, newUnit) =>
+      (oldUnit, newUnit) match {
+        case (Some(ou), Some(nu)) => {
+          try {
+            val oldPq = PhysicalQuantity(text().toDouble, ou)
+            val newPq = oldPq.convertUnit(nu)
+
+            text = newPq.value.toString
+          } catch {
+            case _: NumberFormatException =>
+          }
+        }
+        case _ =>
+      }
+    }
+
+    onAction = handle { updateParameter() }
+  }
+
+  val valueField = new PQField()
+  val lowerField = new PQField()
+  val upperField = new PQField()
 
   val valueUnit = new Label() { text <== unitBox.value }
   val lowerUnit = new Label() { text <== unitBox.value }
   val upperUnit = new Label() { text <== unitBox.value }
 
+  // Returns currently shown /ProtoParameter/
+  def getParameter(): Option[ProtoParameter] = {
+    pId() flatMap { id =>
+      diagram.world().getParameterById(id)
+    }
+  }
+
   def updateParameter() {
-    val world: World = diagram.world()
-    world.getParameterById(pId()) match {
+    // Do not update parameter in /world/ until all controls are updated.
+    if (!initialized()) {
+      return
+    }
+
+    getParameter() match {
       case None =>
-      case Some(pp) => {
+      case Some(oldPp) => {
         // create new name
         val newName = nameField.text()
 
@@ -55,22 +122,18 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
         val newDim = CommonDims.nameToDim.get(dimBox.value()) match {
           case Some(dim) => dim
           case _ => throw new IllegalStateException(
-            "%s is not a known dimension.".format(dimBox.value()))
+            s"${dimBox.value()} is not a known dimension.")
         }
 
         // create new displayUnit
         val newDisplayUnit = unitBox.value()
 
         // create new lower, upper, value
-        val unit: SIUnit = CommonUnits.nameToUnit.get(newDisplayUnit) match {
-          case Some(u) => u
-          case None => throw new IllegalStateException(
-            "%s is not a known unit.".format(newDisplayUnit))
-        }
+
         // If /s/ cannot be parsed into a /Double/, returns /None/.
         def createPQ(s: String): Option[PhysicalQuantity] = {
           try {
-            Some(PhysicalQuantity(s.toDouble, unit))
+            unit().map { u => PhysicalQuantity(s.toDouble, u) }
           } catch {
             case _: NumberFormatException => None
           }
@@ -79,21 +142,27 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
         val newUpper = createPQ(upperField.text())
         val newValue = createPQ(valueField.text())
 
-        val (newWorld, _) = world.updateParameter(
-          pp.id, newName, newDim, newDisplayUnit,
+        val (newWorld, newPp) = diagram.world().updateParameter(
+          oldPp.id, newName, newDim, newDisplayUnit,
           newLower, newUpper, newValue)
 
-        // update world
-        diagram.world() = newWorld
+        // update world only when /newPp/ is different from /oldPp/
+        // Note that infinite loop will take place without this.
+        if (oldPp != newPp) {
+          diagram.world() = newWorld
+        }
       }
     }
   }
 
   // update Controls
   def updateControls() {
-    diagram.world().getParameterById(pId()) match {
+    getParameter() match {
       case None =>
       case Some(pp) => {
+        // Prohibit execution of /updateParameter/ until all controls are updated.
+        initialized() = false
+
         // update nameField
         nameField.text = pp.name
 
@@ -115,7 +184,7 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
             pp.unit match {
               case Some(u) => pq.convertUnit(u).value.toString
               case None => throw new IllegalStateException(
-                "%s is not a known unit.".format(pp.displayUnit))
+                s"${pp.displayUnit} is not a known unit.")
             }
           }
           case None => ""
@@ -123,11 +192,22 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
         valueField.text = opqToStr(pp.value)
         lowerField.text = opqToStr(pp.lower)
         upperField.text = opqToStr(pp.upper)
+
+        // Allow execution of /updateParameter/ again.
+        initialized() = true
       }
     }
   }
 
-  diagram.world.onChange { updateControls() }
+  // Update controls when /world/ is changed.
+  diagram.world onChange {
+    updateControls()
+  }
+
+  // Update controls when /pId/ is changed.
+  pId onChange {
+    updateControls()
+  }
 
   content = Seq(
     new Label("Parameter"),
@@ -135,8 +215,8 @@ class ParameterInfoPane()(implicit diagram: Diagram) extends VBox {
     createItem("Dim", dimBox),
     createItem("Unit", unitBox),
     createItem("Value", valueField, valueUnit),
-    createItem("lower", lowerField, lowerUnit),
-    createItem("upper", upperField, upperUnit)
+    createItem("Lower", lowerField, lowerUnit),
+    createItem("Upper", upperField, upperUnit)
   )
 
   private def createItem(name: String, item: Node*): HBox = {

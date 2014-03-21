@@ -28,6 +28,7 @@ class DVariable(val cId: Int, val varName: String, tx0: Double, ty0: Double)(val
   val NAME_COLOR = Color.BLACK
   val BOUND_COLOR = Color.GRAY
 
+  // dotted line
   val UNBOUND_SEQ: Seq[java.lang.Double] = Seq(4, 4)
 
   // properties
@@ -42,6 +43,7 @@ class DVariable(val cId: Int, val varName: String, tx0: Double, ty0: Double)(val
 
   private val circle = makeDraggable(
     makeSelectable(new Circle() {
+      // geometry
       radius = RADIUS
       centerX <== DVariable.this.x
       centerY <== DVariable.this.y
@@ -54,6 +56,7 @@ class DVariable(val cId: Int, val varName: String, tx0: Double, ty0: Double)(val
         me.consume()
       }
 
+      // use dotted line when not bound
       strokeDashArray = UNBOUND_SEQ
       isBound onChange {
         strokeDashArray = if (isBound()) null else UNBOUND_SEQ

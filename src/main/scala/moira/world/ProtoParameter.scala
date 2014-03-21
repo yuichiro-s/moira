@@ -17,7 +17,7 @@ case class ProtoParameter(
   upper: Option[PhysicalQuantity] = None,
   value: Option[PhysicalQuantity] = None
 ) {
-  val unit: Option[SIUnit] = CommonUnits.nameToUnit.get(displayUnit)
+  val unit: Option[SIUnit] = CommonUnits.parseUnit(displayUnit)
 
   // dimensions must be the same
   require(unit match { case Some(u) => u.dim == dim; case None => true })

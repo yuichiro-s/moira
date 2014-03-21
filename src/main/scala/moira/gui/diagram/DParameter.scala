@@ -85,7 +85,7 @@ class DParameter(val id: Int, x0: Double, y0: Double)(val diagram: Diagram) exte
         isBound() = pp.value.isDefined
         nameText.text = pp.name
         valueText.text = pp.value match {
-          case Some(pq) =>  pq.toString
+          case Some(pq) => f"${pq.value}%g ${pp.displayUnit}"
           case None => {
             // When the parameter is not bound, show its dimension.
             pp.dim.toString

@@ -1,9 +1,8 @@
 package moira.gui
 
-import scalafx.Includes._
 import scalafx.stage.Stage
 import scalafx.scene.Scene
-import scalafx.scene.control.{Button,Label}
+import scalafx.scene.control.Label
 import scalafx.scene.layout.BorderPane
 
 import moira.gui.diagram.{Diagram,DParameter,DConstraint}
@@ -26,25 +25,9 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
   // information of constraint
   private val constraintInfoPane = new ConstraintInfoPane()
 
-  private val updateButton = new Button("Update") {
-    onAction = handle {
-      diagram.infoObject() match {
-        case Some(obj) => {
-          obj match {
-            case dp: DParameter => parameterInfoPane.updateParameter()
-            case dc: DConstraint => constraintInfoPane.updateConstraint()
-            case _ =>
-          }
-        }
-        case _ =>
-      }
-    }
-  }
-
   scene = new Scene() {
     root = new BorderPane() {
       center = emptyInfoPane
-      bottom = updateButton
 
       // When an object is clicked, the scene switches to show the information.
       diagram.infoObject onChange { (_, _, odo) =>
@@ -52,13 +35,13 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
           case None => emptyInfoPane
           case Some(obj) => obj match {
             case dp: DParameter => {
-              parameterInfoPane.pId() = dp.id
-              parameterInfoPane.updateControls()
+              parameterInfoPane.pId() = Some(dp.id)
+              constraintInfoPane.cId() = None
               parameterInfoPane
             }
             case dc: DConstraint => {
-              constraintInfoPane.cId() = dc.id
-              constraintInfoPane.updateControls()
+              parameterInfoPane.pId() = None
+              constraintInfoPane.cId() = Some(dc.id)
               constraintInfoPane
             }
             case _ => emptyInfoPane
