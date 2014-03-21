@@ -15,9 +15,7 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
   minWidth = 400
   minHeight = 300
 
-  private val emptyInfoPane = new BorderPane() {
-    center = new Label("Empty")
-  }
+  private val worldInfoPane = new WorldInfoPane()
 
   // information of parameter
   private val parameterInfoPane = new ParameterInfoPane()
@@ -27,12 +25,12 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
 
   scene = new Scene() {
     root = new BorderPane() {
-      center = emptyInfoPane
+      center = worldInfoPane
 
       // When an object is clicked, the scene switches to show the information.
       diagram.infoObject onChange { (_, _, odo) =>
         center = odo match {
-          case None => emptyInfoPane
+          case None => worldInfoPane
           case Some(obj) => obj match {
             case dp: DParameter => {
               parameterInfoPane.pId() = Some(dp.id)
@@ -44,7 +42,7 @@ class InfoStage()(implicit diagram: Diagram) extends Stage {
               constraintInfoPane.cId() = Some(dc.id)
               constraintInfoPane
             }
-            case _ => emptyInfoPane
+            case _ => worldInfoPane
           }
         }
       }
